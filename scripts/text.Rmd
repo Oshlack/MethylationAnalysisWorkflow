@@ -105,7 +105,7 @@ ann450k = getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 head(ann450k)
 ```
 
-The simplest way to import the raw methylation data into R is using the *minfi* function `read.450k.sheet`, along with the path to the IDAT files and a sample sheet. The sample sheet is a CSV (comma-separated) file containing one line per sample, with a number of columns describing each sample. The format expected by the `read.450k.sheet` function is based on the sample sheet file that usually accompanies Illumina methylation array data. It is also very similar to the targets file described by the *limma* package. Importing the sample sheet into R creates a `data.frame` with one row for each sample and several columns. The `read.450k.sheet` function uses the specified path and other information from the sample sheet to create a column called `Basename` which specifies the location of each individual IDAT file in the experiment. 
+The simplest way to import the raw methylation data into R is using the *minfi* function `read.metharray.sheet`, along with the path to the IDAT files and a sample sheet. The sample sheet is a CSV (comma-separated) file containing one line per sample, with a number of columns describing each sample. The format expected by the `read.metharray.sheet` function is based on the sample sheet file that usually accompanies Illumina methylation array data. It is also very similar to the targets file described by the *limma* package. Importing the sample sheet into R creates a `data.frame` with one row for each sample and several columns. The `read.metharray.sheet` function uses the specified path and other information from the sample sheet to create a column called `Basename` which specifies the location of each individual IDAT file in the experiment. 
 
 ```{r, eval=FALSE}
 # set up a path for your project 
@@ -119,6 +119,20 @@ dataDirectory <- paste(projectDirectory,"data",sep="/")
 # read in the sample sheet for the experiment
 targets <- read.450k.sheet(dataDirectory, pattern="SampleSheet.csv")
 targets
+```
+
+## Downloading the data
+We will download the data for this workflow directly from GEO.
+```{r download}
+dataFile <- "GSE49667_signal_intensities.txt.gz"
+if(!file.exists(dataFile)){
+    download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE49nnn/GSE49667/suppl/GSE49667_signal_intensities.txt.gz",
+                  destfile = "GSE49667_signal_intensities.txt.gz")
+    dataTable <- read.table(file=,sep="\t", header=TRUE)
+} else {
+    dataTable <- read.table(file=dataFile,sep="\t", header=TRUE)
+}
+
 ```
 
 Now that we have imported the information about the samples and where the data is located, we can import the raw intensity signals into R from the IDAT files. This creates an `RGChannelSet` object that contains all the raw intensity data, from both the red and green colour channels, for each of the samples. At this stage, it can be useful to rename the samples with more descriptive names. 
@@ -650,6 +664,11 @@ if(file.exists(possiblePaths[1])){
 ```{r, cache=TRUE, eval=FALSE, results='hide'}
 # set up a path to the ageing data directory
 age.dataDirectory <- "/absolute/path/to/your/ageing/data/directory"
+```
+
+```{r}
+download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE30nnn/GSE30870/suppl/GSE30870_signal_intensities.txt.gz",
+              destfile="GSE30870_signal_intensities.txt.gz")
 ```
 
 ```{r, cache=TRUE}
