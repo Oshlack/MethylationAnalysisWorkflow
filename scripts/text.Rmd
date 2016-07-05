@@ -43,42 +43,25 @@ Measurement of DNA methylation by Infinium technology (Infinium I) was first emp
 \begin{figure}[htbp]
 \centering
 \includegraphics{text_files/figure-latex/figure1.pdf}
-\caption{\label{fig:probes}Illumina Infinium HumanMethylation450 assay, reproduced from Maksimovic, Gordon and Oshlack 2012. (a) Infinium I assay. Each individual CpG is interrogated using two bead types: methylated (M) and unmethylated (U). Both bead types will incorporate the same labeled nucleotide for the same target CpG, thereby producing the same color fluorescence. The nucleotide that is added is determined by the base downstream of the 'C' of the target CpG. The proportion of methylation can be calculated by comparing the intensities from the two different probes in the same color. (b) Infinium II assay. Each target CpG is interrogated using a single bead type. Methylation state is detected by single base extension at the position of the 'C' of the target CpG, which always results in the addition of a labeled 'G' or 'A' nucleotide, complementary to either the 'methylated' C or 'unmethylated' T, respectively. Each locus is detected in two colors, and methylation status is determined by comparing the two colors from the one position.}
+\caption{\label{fig:figure1}Illumina Infinium HumanMethylation450 assay, reproduced from Maksimovic, Gordon and Oshlack 2012. (a) Infinium I assay. Each individual CpG is interrogated using two bead types: methylated (M) and unmethylated (U). Both bead types will incorporate the same labeled nucleotide for the same target CpG, thereby producing the same color fluorescence. The nucleotide that is added is determined by the base downstream of the 'C' of the target CpG. The proportion of methylation can be calculated by comparing the intensities from the two different probes in the same color. (b) Infinium II assay. Each target CpG is interrogated using a single bead type. Methylation state is detected by single base extension at the position of the 'C' of the target CpG, which always results in the addition of a labeled 'G' or 'A' nucleotide, complementary to either the 'methylated' C or 'unmethylated' T, respectively. Each locus is detected in two colors, and methylation status is determined by comparing the two colors from the one position.}
  \end{figure}
  
 Regardless of the Illumina array version, for each CpG, there are two measurements: a methylated intensity (denoted by $M$) and an unmethylated intensity (denoted by $U$). These intensity values can be used to determine the proportion of methylation at each CpG locus. Methylation levels are commonly reported as either beta values ($\beta = M/(M + U + \alpha)$) or M-values ($Mvalue = log2(M/U)$). Beta values and M-values are related through a logit transformation. Beta values are generally preferable for describing the level of methylation at a locus or for graphical presentation because percentage methylation is easily interpretable. However, due to their distributional properties, M-values are more appropriate for statistical testing [@Du2010]. 
 
 In this workflow, we will provide examples of the steps involved in analysing methylation array data using R [@RCoreTeam2014] and Bioconductor [@Huber2015], including: quality control, filtering, normalization, data exploration and probe-wise differential methylation analysis. We will also cover other approaches such as differential methylation analysis of regions, differential variability analysis, gene ontology analysis and estimating cell type composition. Finally, we will provide some examples of useful ways to visualise methylation array data.
 
-<!-- ```{r, echo=FALSE, results='hide', cache=TRUE} -->
-<!-- possiblePaths <- c("X:/shared/BioinfoSummer2015/450kAnalysisWorkshop", -->
-<!--                   "/group/bioi1/shared/BioinfoSummer2015/450kAnalysisWorkshop", -->
-<!--                   "/mnt/storage/shared/BioinfoSummer2015/450kAnalysisWorkshop") -->
-<!-- if(file.exists(possiblePaths[1])){ -->
-<!--     projectDirectory <- possiblePaths[1] -->
-<!-- } else if(file.exists(possiblePaths[2])){ -->
-<!--     projectDirectory <- possiblePaths[2] -->
-<!-- } else if(file.exists(possiblePaths[3])){ -->
-<!--     projectDirectory <- possiblePaths[3] -->
-<!-- } -->
-<!-- ``` -->
-
-<!-- ```{r, echo=FALSE, results='hide', cache=TRUE} -->
-<!-- dataDirectory <- paste(projectDirectory,"data",sep="/") -->
-<!-- targets <- read.450k.sheet(dataDirectory, pattern="SampleSheet.csv") -->
-<!-- ``` -->
-
-```{r}
-dataDirectory <- "data"
+```{r, echo=FALSE, results='hide', cache=TRUE}
+dataDirectory <- "./data"
+targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 ```
 
 # Differential methylation analysis
 
-To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total; there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`), collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. 
+To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total: there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`, collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. An additional `birth` sample (individual `r targets$Sample_Source[targets$Sample_Group == "birth"]`) is included from another study [@Cruickshank2013] to illustrate approaches for identifying and excluding poor quality samples. 
 
-<!-- ```{r} -->
-<!-- targets[,c("Sample_Name","Sample_Source", "Sample_Group")] -->
-<!-- ``` -->
+```{r}
+targets[,c("Sample_Name","Sample_Source", "Sample_Group")]
+```
 
 There are several R Bioconductor packages available that have been developed for analysing methylation array data, including *minfi* [@Aryee2014], *missMethyl* [@Phipson2016], *wateRmelon* [@Pidsley2013], *methylumi* [@Davis2015], *ChAMP* [@Morris2014] and *charm* [@Aryee2011]. Some of the packages, such as *minfi* and *methylumi* include a framework for reading in the raw data from IDAT files and various specialised objects for storing and manipulating the data throughout the course of an analysis. Other packages provide specialised analysis methods for normalisation and statistical testing that rely on either *minfi* or *methylumi* objects. It is possible to convert between *minfi* and *methylumi* data types, however, this is not always trivial. Thus, it is advisable to consider the methods that you are interested in using and the data types that are most appropriate before you begin your analysis. Another popular method for analysing methylation array data is *limma* [@Ritchie2015], which was originally developed for gene expression microarray analysis. As *limma* operates on a matrix of values, it is easily applied to any data that can be converted to a `matrix` in R.         
 
@@ -110,108 +93,29 @@ ann450k = getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 head(ann450k)
 ```
 
-As for their many other BeadArray platforms, Illumina methylation data is typically obtained in the form of Intensity Data (IDAT) Files. This is a proprietary format that is output by the scanner and stores summary intensities for each probe on the array. However, there are Bioconductor packages available that facilitate the import of data from IDAT files into R [@Smith2013]. The *minfi* package provides specialised functions for importing methylation data from IDAT files, which are described in detail in the package [vignette](http://bioconductor.org/packages/release/bioc/vignettes/minfi/inst/doc/minfi.pdf). As the data for the workflow is publicly available from the Gene Expression Omnibus (GEO), a different approach will be used to import the data into R.
-<!-- ```{r, eval=FALSE} -->
-<!-- # set up a path for your project  -->
-<!-- projectDirectory <- "/absolute/path/to/your/project" -->
-<!-- ``` -->
+As for their many other BeadArray platforms, Illumina methylation data is typically obtained in the form of Intensity Data (IDAT) Files. This is a proprietary format that is output by the scanner and stores summary intensities for each probe on the array. However, there are Bioconductor packages available that facilitate the import of data from IDAT files into R [@Smith2013]. The simplest way to import the raw methylation data into R is using the *minfi* function `read.metharray.sheet`, along with the path to the IDAT files and a sample sheet. The sample sheet is a CSV (comma-separated) file containing one line per sample, with a number of columns describing each sample. The format expected by the `read.metharray.sheet` function is based on the sample sheet file that usually accompanies Illumina methylation array data. It is also very similar to the targets file described by the *limma* package. Importing the sample sheet into R creates a `data.frame` with one row for each sample and several columns. The `read.metharray.sheet` function uses the specified path and other information from the sample sheet to create a column called `Basename` which specifies the location of each individual IDAT file in the experiment.
 
-<!-- ```{r, cache=TRUE} -->
-<!-- # set up a path to your data directory - which should be in your project directory  -->
-<!-- dataDirectory <- paste(projectDirectory,"data",sep="/") -->
+```{r, cache=TRUE}
+# set up a path to your data directory
+dataDirectory <- "./data"
 
-<!-- # read in the sample sheet for the experiment -->
-<!-- targets <- read.450k.sheet(dataDirectory, pattern="SampleSheet.csv") -->
-<!-- targets -->
-<!-- ``` -->
-
-## Downloading the data
-All of the raw fluorescence intensities and the detection p-values required for this workflow are in the supplementary file `GSE49667_signal_intensities.txt.gz` for GEO record [GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667). We can download them from within the R environment using the `download.file` function.    
-```{r download}
-dataFile <- "GSE49667_signal_intensities.txt.gz" # name of downloaded file
-
-if(!file.exists(dataFile)){ # check if the file has already been downloaded
-    # download file from GEO
-    download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE49nnn/GSE49667/suppl/GSE49667_signal_intensities.txt.gz",
-                  destfile = "GSE49667_signal_intensities.txt.gz")
-    # read methylation data from downloaded file 
-    dataTable <- read.table(file=,sep="\t", header=TRUE)
-} else {
-    # file already exists, read methylation data from local copy
-    dataTable <- read.table(file=dataFile,sep="\t", header=TRUE)
-}
-
-head(dataTable[,1:7])
+# read in the sample sheet for the experiment
+targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
+targets
 ```
 
-We will also download the sample information or **pheno** data from GEO using the `getGEO` function from the *GEOquery* package. This will create an expression set object that contains all the information related to the experiment. 
-```{r get_geo}
-gse <- getGEO(GEO="GSE49667")
-gse
+Now that we have imported the information about the samples and where the data is located, we can read the raw intensity signals into R from the IDAT files using the `read.metharray.exp` function. This creates an `RGChannelSet` object that contains all the raw intensity data, from both the red and green colour channels, for each of the samples. At this stage, it can be useful to rename the samples with more descriptive names.
+
+```{r, cache=TRUE}
+# read in the raw data from the IDAT files
+rgSet <- read.metharray.exp(targets=targets)
+rgSet
+
+# give the samples descriptive names
+targets$ID <- paste(targets$Sample_Group,targets$Sample_Name,sep=".")
+sampleNames(rgSet) <- targets$ID
+rgSet
 ```
-
-We can specifically extract the pheno data using the `pData` function.  
-```{r get_pheno}
-phenoData <- pData(gse$GSE49667_series_matrix.txt.gz)
-head(phenoData)
-```
-
-As many of the fields are not relevant to the subsequent analysis, we will extract only the pertinent sample information. This can be found in the columns labelled as **characteristics**.
-```{r format_pheno}
-# extract only the "characteristics" columns
-phenoData <- phenoData[,grepl("characteristics",colnames(phenoData))]
-phenoData
-```
-
-After extracting the relevant columns, we will remove unnecessary text and update the column names with more meaningful labels.
-```{r}
-# remove the superfluous text
-phenoData <- data.frame(sapply(phenoData, function(x) gsub(".*: ","",x,perl=TRUE)))
-# label the columns with meaningful names
-colnames(phenoData) <- c("Sample_Source","Sex","Disease_Status","Sample_Group")
-# replace "special" characters with ordinary version
-phenoData$Sample_Group <- gsub("naïve","naive",phenoData$Sample_Group)
-# create a column with unique sample names
-phenoData$Sample_Name <- paste(phenoData$Sample_Source,phenoData$Sample_Group,sep="_")
-phenoData
-```
-
-Now that 
-```{r make_mset}
-samples <- gsub(".Detection.Pval", "", colnames(dataTable)[grepl("Detection", colnames(dataTable))])
-cpgs <- as.character(dataTable[,1])
-
-M <- as.matrix(dataTable[,grepl("Methylated", colnames(dataTable))]) 
-U <- as.matrix(dataTable[,grepl("Unmethylated", colnames(dataTable))])
-
-colnames(M) <- samples
-colnames(U) <- samples
-rownames(M) <- cpgs
-rownames(U) <- cpgs
-
-adf = AnnotatedDataFrame(data=phenoData)
-sampleNames(adf) = phenoData$Sample_Name
-mSet <- new("MethylSet", Meth = M, Unmeth = U, phenoData = adf,
-            annotation = c(array="IlluminaHumanMethylation450k", annotation="ilmn12.hg19"))
-
-mSet@preprocessMethod <- c(rg.norm = "dataTable (no normalization or bg correction)",
-                           minfi = as.character(packageVersion("minfi")), 
-                           manifest = as.character(packageVersion("IlluminaHumanMethylation450kmanifest")))
-
-```
-
-<!-- Now that we have imported the information about the samples and where the data is located, we can import the raw intensity signals into R from the IDAT files. This creates an `RGChannelSet` object that contains all the raw intensity data, from both the red and green colour channels, for each of the samples. At this stage, it can be useful to rename the samples with more descriptive names.  -->
-
-<!-- ```{r, cache=TRUE} -->
-<!-- # read in the raw data from the IDAT files -->
-<!-- rgSet <- read.450k.exp(targets=targets) -->
-<!-- rgSet -->
-
-<!-- # give the samples descriptive names -->
-<!-- targets$ID <- paste(targets$Sample_Group,targets$Sample_Name,sep=".") -->
-<!-- sampleNames(rgSet) <- targets$ID -->
-<!-- rgSet -->
-<!-- ``` -->
 
 ## Quality control
 
@@ -223,11 +127,6 @@ Plotting the mean detection p-value for each sample allows us to gauge the gener
 # calculate the detection p-values
 detP <- detectionP(rgSet)
 head(detP)
-
-detP <- as.matrix(dataTable[,grepl("Detection.Pval", colnames(dataTable))])
-colnames(detP) <- samples
-rownames(detP) <- cpgs
-
 
 # examine mean detection p-values across all samples to identify any failed samples
 pal <- brewer.pal(8,"Dark2")
@@ -508,12 +407,6 @@ DMRs <- dmrcate(myAnnotation, lambda=1000, C=2)
 head(DMRs$results)
 ```
 
-```{r, cache=TRUE, results="hide", echo=FALSE}
-if(grepl("X:",projectDirectory)){
-    Sys.setenv(http_proxy = "http://proxy1.ap.webscanningservice.com:3128")
-}
-```
-
 As for the probe-wise analysis, it is advisable to visualise the results to ensure that they make sense. The regions can easily be viewed using the `DMR.plot` function provided in the *DMRcate* package.
 ```{r, cache=TRUE}
 # convert the regions to annotated genomic ranges
@@ -686,21 +579,21 @@ From the output we can see many of the top GO categories correspond to immune sy
 
 For a more generalised version of gene set testing for methylation data where the user can specify the gene set to be tested, the `gsameth` function can be used. To display the top 20 pathways, `topGSA` can be called. `gsameth` accepts a single gene set, or a list of gene sets. The gene identifiers in the gene set must be Entrez Gene IDs. To demonstrate `gsameth`, we are using the curated genesets (C2) from the Broad Institute Molecular signatures [database](http://software.broadinstitute.org/gsea/msigdb). These can be downloaded as an `RData` object from the WEHI Bioinformatics [website](http://bioinf.wehi.edu.au/software/MSigDB/).  
 
-```{r, echo=FALSE, results='hide', cache=TRUE}
-if(grepl("group",projectDirectory)){
-    source("/group/bioi1/jovanam/R_packages/gsameth.R")
-    source("/group/bioi1/jovanam/R_packages/gometh.R")
-    source("/group/bioi1/jovanam/R_packages/kegga.R")
-} else if (grepl("X:",projectDirectory)){
-    source("X:/jovanam/R_packages/gsameth.R")
-    source("X:/jovanam/R_packages/gometh.R")
-    source("X:/jovanam/R_packages/kegga.R")
-} else if (grepl("mnt",projectDirectory)){
-    source("/mnt/storage/jovanam/R_packages/gsameth.R")
-    source("/mnt/storage/jovanam/R_packages/gometh.R")
-    source("/mnt/storage/jovanam/R_packages/kegga.R")
-}
-```
+<!-- ```{r, echo=FALSE, results='hide', cache=TRUE} -->
+<!-- if(grepl("group",projectDirectory)){ -->
+<!--     source("/group/bioi1/jovanam/R_packages/gsameth.R") -->
+<!--     source("/group/bioi1/jovanam/R_packages/gometh.R") -->
+<!--     source("/group/bioi1/jovanam/R_packages/kegga.R") -->
+<!-- } else if (grepl("X:",projectDirectory)){ -->
+<!--     source("X:/jovanam/R_packages/gsameth.R") -->
+<!--     source("X:/jovanam/R_packages/gometh.R") -->
+<!--     source("X:/jovanam/R_packages/kegga.R") -->
+<!-- } else if (grepl("mnt",projectDirectory)){ -->
+<!--     source("/mnt/storage/jovanam/R_packages/gsameth.R") -->
+<!--     source("/mnt/storage/jovanam/R_packages/gometh.R") -->
+<!--     source("/mnt/storage/jovanam/R_packages/kegga.R") -->
+<!-- } -->
+<!-- ``` -->
 
 ```{r, cache=TRUE}
 # load Broad human curated (C2) gene sets
@@ -718,36 +611,12 @@ Rather than testing for differences in mean methylation, we may be interested in
 
 Sample size is an important consideration when testing for differentially variable CpG sites. In order to get an accurate estimate of the group variances, larger sample sizes are required than for estimating group means. A good rule of thumb is to have at least ten samples in each group [@Phipson2014]. To demonstrate testing for differentially variable CpG sites, we will use a publicly available dataset on ageing, where whole blood samples were collected from 18 centenarians and 18 newborns and profiled for methylation on the 450k array [@Heyn2012]. We will first need to load, normalise and filter the data as previously described. 
 
-```{r, echo=FALSE, results='hide', cache=TRUE}
-possibleAgePaths <- c("X:/shared/public_data/ageing450k/Heyn",
-                  "/group/bioi1/shared/public_data/ageing450k/Heyn",
-                  "/mnt/storage/shared/public_data/ageing450k/Heyn")
-if(file.exists(possiblePaths[1])){
-    age.dataDirectory <- possibleAgePaths[1]
-} else if(file.exists(possiblePaths[2])){
-    age.dataDirectory <- possibleAgePaths[2]
-} else if(file.exists(possiblePaths[3])){
-    age.dataDirectory <- possibleAgePaths[3]
-}
-```
-
-```{r, cache=TRUE, eval=FALSE, results='hide'}
-# set up a path to the ageing data directory
-age.dataDirectory <- "/absolute/path/to/your/ageing/data/directory"
-```
-
-```{r}
-download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE30nnn/GSE30870/suppl/GSE30870_signal_intensities.txt.gz",
-              destfile="GSE30870_signal_intensities.txt.gz")
-```
-
 ```{r, cache=TRUE}
-age.targets <- read.450k.sheet(base=age.dataDirectory)
-age.targets <- age.targets[age.targets$Sample_Group != "WGBS",] 
+# load data
+load(paste(dataDirectory,"age.data.RData",sep="/"))
 
-# load the raw 450k from the IDAT files
-age.rgSet <- read.450k.exp(targets=age.targets)
-age.detP <- detectionP(age.rgSet) # calculate detection p-values
+# calculate detection p-values
+age.detP <- detectionP(age.rgSet)
 
 # pre-process the data after excluding poor quality samples
 age.mSetSq <- preprocessQuantile(age.rgSet)
