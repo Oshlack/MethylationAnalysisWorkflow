@@ -16,7 +16,7 @@ bibliography: bibliography.bib
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, results='hide', echo=FALSE}
+```{r libload, results="hide", echo=FALSE, message=FALSE}
 library(limma)
 library(minfi)
 library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
@@ -46,20 +46,30 @@ Measurement of DNA methylation by Infinium technology (Infinium I) was first emp
 \caption{\label{fig:figure1}Illumina Infinium HumanMethylation450 assay, reproduced from Maksimovic, Gordon and Oshlack 2012. (a) Infinium I assay. Each individual CpG is interrogated using two bead types: methylated (M) and unmethylated (U). Both bead types will incorporate the same labeled nucleotide for the same target CpG, thereby producing the same color fluorescence. The nucleotide that is added is determined by the base downstream of the 'C' of the target CpG. The proportion of methylation can be calculated by comparing the intensities from the two different probes in the same color. (b) Infinium II assay. Each target CpG is interrogated using a single bead type. Methylation state is detected by single base extension at the position of the 'C' of the target CpG, which always results in the addition of a labeled 'G' or 'A' nucleotide, complementary to either the 'methylated' C or 'unmethylated' T, respectively. Each locus is detected in two colors, and methylation status is determined by comparing the two colors from the one position.}
  \end{figure}
  
-Regardless of the Illumina array version, for each CpG, there are two measurements: a methylated intensity (denoted by $M$) and an unmethylated intensity (denoted by $U$). These intensity values can be used to determine the proportion of methylation at each CpG locus. Methylation levels are commonly reported as either beta values ($\beta = M/(M + U + \alpha)$) or M-values ($Mvalue = log2(M/U)$). Beta values and M-values are related through a logit transformation. Beta values are generally preferable for describing the level of methylation at a locus or for graphical presentation because percentage methylation is easily interpretable. However, due to their distributional properties, M-values are more appropriate for statistical testing [@Du2010]. 
+Regardless of the Illumina array version, for each CpG, there are two measurements: a methylated intensity (denoted by $M$) and an unmethylated intensity (denoted by $U$). These intensity values can be used to determine the proportion of methylation at each CpG locus. Methylation levels are commonly reported as either beta values ($\beta = M/(M + U + \alpha)$) or M-values ($Mvalue = log2((M + /alpha)/(U + /alpha))$). Beta values and M-values are related through a logit transformation. Beta values are generally preferable for describing the level of methylation at a locus or for graphical presentation because percentage methylation is easily interpretable. However, due to their distributional properties, M-values are more appropriate for statistical testing [@Du2010]. 
 
 In this workflow, we will provide examples of the steps involved in analysing methylation array data using R [@RCoreTeam2014] and Bioconductor [@Huber2015], including: quality control, filtering, normalization, data exploration and probe-wise differential methylation analysis. We will also cover other approaches such as differential methylation analysis of regions, differential variability analysis, gene ontology analysis and estimating cell type composition. Finally, we will provide some examples of useful ways to visualise methylation array data.
 
-```{r, echo=FALSE, results='hide', cache=TRUE}
+# Differential methylation analysis
+
+## Obtaining the data
+
+The data required for this workflow can be obtained from [figshare](https://figshare.com/s/7a37f43c0ca2fec4669e). Once the data has been downloaded, it needs to be extracted from the archive. This will create a folder called `data`, which contains all the files necessary to execute the workflow.
+
+```{r datadir}
+# set up a path to the data directory
 dataDirectory <- "./data"
+# list the files
+list.files(dataDirectory, recursive = TRUE)
+```
+
+```{r readtargets, echo=FALSE, results='hide', cache=TRUE, message=FALSE}
 targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 ```
 
-# Differential methylation analysis
-
 To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total: there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`, collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. An additional `birth` sample (individual `r targets$Sample_Source[targets$Sample_Group == "birth"]`) is included from another study [@Cruickshank2013] to illustrate approaches for identifying and excluding poor quality samples. 
 
-```{r}
+```{r viewtargets, echo=FALSE}
 targets[,c("Sample_Name","Sample_Source", "Sample_Group")]
 ```
 
@@ -70,7 +80,7 @@ We will begin with an example of a **probe-wise** differential methylation analy
 ## Loading the data
 
 It is useful to begin an analysis in R by loading all the package libraries that are likely to be required.
-```{r, eval=FALSE}
+```{r loadlib_noeval, eval=FALSE, message=FALSE}
 # load packages required for analysis
 library(limma)
 library(minfi)
@@ -87,7 +97,7 @@ library(GEOquery)
 ```
 
 The *minfi* package provides the Illumina manifest as an R object which can easily be loaded into the environment. The manifest contains all of the annotation information for each of the CpG probes on the 450k array. This is useful for determining where any differentially methylated probes are located in a genomic context. 
-```{r, cache=TRUE}
+```{r annotations, cache=TRUE}
 # get the 450k annotation data
 ann450k = getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 head(ann450k)
@@ -95,10 +105,7 @@ head(ann450k)
 
 As for their many other BeadArray platforms, Illumina methylation data is typically obtained in the form of Intensity Data (IDAT) Files. This is a proprietary format that is output by the scanner and stores summary intensities for each probe on the array. However, there are Bioconductor packages available that facilitate the import of data from IDAT files into R [@Smith2013]. The simplest way to import the raw methylation data into R is using the *minfi* function `read.metharray.sheet`, along with the path to the IDAT files and a sample sheet. The sample sheet is a CSV (comma-separated) file containing one line per sample, with a number of columns describing each sample. The format expected by the `read.metharray.sheet` function is based on the sample sheet file that usually accompanies Illumina methylation array data. It is also very similar to the targets file described by the *limma* package. Importing the sample sheet into R creates a `data.frame` with one row for each sample and several columns. The `read.metharray.sheet` function uses the specified path and other information from the sample sheet to create a column called `Basename` which specifies the location of each individual IDAT file in the experiment.
 
-```{r, cache=TRUE}
-# set up a path to your data directory
-dataDirectory <- "./data"
-
+```{r readtargets_noeval, eval=FALSE}
 # read in the sample sheet for the experiment
 targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 targets
@@ -106,7 +113,7 @@ targets
 
 Now that we have imported the information about the samples and where the data is located, we can read the raw intensity signals into R from the IDAT files using the `read.metharray.exp` function. This creates an `RGChannelSet` object that contains all the raw intensity data, from both the red and green colour channels, for each of the samples. At this stage, it can be useful to rename the samples with more descriptive names.
 
-```{r, cache=TRUE}
+```{r readdata, cache=TRUE}
 # read in the raw data from the IDAT files
 rgSet <- read.metharray.exp(targets=targets)
 rgSet
@@ -146,14 +153,14 @@ legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal,
 
 The *minfi* `qcReport` function generates many other useful quality control plots. The *minfi* [vignette](http://bioconductor.org/packages/release/bioc/vignettes/minfi/inst/doc/minfi.pdf) describes the various plots and how they should be interpreted in detail. Generally, samples that look poor based on mean detection p-value will also look poor using other metrics and it is usually advisable to exclude them from further analysis.
 
-```{r, eval=FALSE}
+```{r qcreport, eval=FALSE}
 qcReport(rgSet, sampNames=targets$ID, sampGroups=targets$Sample_Group, 
          pdf="qcReport.pdf")
 ```
 
 Poor quality samples can be easily excluded from the analysis using a detection p-value cutoff, for example >0.05. For this particular dataset, the `birth` sample shows a very high mean detection p-value, and hence it is excluded from subsequent analysis. 
 
-```{r, cache=TRUE}
+```{r badsamples, cache=TRUE}
 # remove poor quality samples
 keep <- colMeans(detP) < 0.05
 rgSet <- rgSet[,keep]
@@ -172,7 +179,7 @@ dim(detP)
 
 To minimise the unwanted variation within and between samples, various data normalizations can be applied. Many different types of normalization have been developed for methylation arrays and it is beyond the scope of this workflow to compare and contrast all of them [@Fortin2014; @Wu2014; @Sun2011; @Wang2012; @Maksimovic2012; @Mancuso2011; @Touleimat2012; @Teschendorff2013; @Pidsley2013; @Triche2013]. Several methods have been built into *minfi* and can be directly applied within its framework [@Fortin2014; @Triche2013; @Maksimovic2012; @Touleimat2012], whilst others are *methylumi*-specific or require custom data types [@Wu2014; @Sun2011; @Wang2012; @Mancuso2011; @Teschendorff2013; @Pidsley2013]. Although there is no single normalisation method that is universally considered best, a recent study by @Fortin2014 has suggested that a good rule of thumb within the *minfi* framework is that the `preprocessFunnorm` [@Fortin2014] function is most appropriate for datasets with global methylation differences such as cancer/normal or vastly different tissue types, whilst the `preprocessQuantile` function [@Touleimat2012] is more suited for datasets where you do not expect global differences between your samples, for example a single tissue. As we are comparing different blood cell types, which are globally relatively similar, we will apply the `preprocessQuantile` method to our data. Note that after normalization, the data is housed in a `GenomicRatioSet` object. This is a much more compact representation of the data as the colour channel information has been discarded and the $M$ and $U$ intensity information has been converted to M-values and beta values, together with associated genomic coordinates.  
 
-```{r, cache=TRUE}
+```{r norm, cache=TRUE}
 # normalize the data; this results in a GenomicRatioSet object
 mSetSq <- preprocessQuantile(rgSet) 
 
@@ -230,7 +237,7 @@ legend("topright", legend=levels(factor(targets$Sample_Group)), text.col=pal,
 
 Poor performing probes are generally filtered out prior to differential methylation analysis. As the signal from these probes is unreliable, by removing them we perform fewer statistical tests and thus incur a reduced multiple testing penalty. We filter out probes that have failed in one or more samples based on detection p-value.
 
-```{r, cache=TRUE}
+```{r detpfilter, cache=TRUE}
 # ensure probes are in the same order in the mSetSq and detP objects
 detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
 
@@ -244,7 +251,7 @@ mSetSqFlt
 
 Depending on the nature of your samples and your biological question you may also choose to filter out the probes from the X and Y chromosomes or probes that are known to have common SNPs at the CpG site. As the samples in this dataset were all derived from male donors, we will not be removing the sex chromosome probes as part of this analysis, however example code is provided below. A different dataset, which contains both male and female samples, is used to demonstrate a [Differential Variability](#Differential variability) analysis and provides an example of when sex chromosome removal is necessary. 
 
-```{r, eval=FALSE}
+```{r sexfilter, eval=FALSE}
 # if your data includes males and females, remove probes on the sex chromosomes
 keep <- !(featureNames(mSetSqFlt) %in% ann450k$Name[ann450k$chr %in% 
                                                         c("chrX","chrY")])
@@ -254,14 +261,14 @@ mSetSqFlt <- mSetSqFlt[keep,]
 
 There is a function in *minfi* that provides a simple interface for the removal of probes where common SNPs may affect the CpG. You can either remove all probes affected by SNPs (default), or only those with minor allele frequencies greater than a specified value.
 
-```{r, cache=TRUE}
+```{r snpfilter, cache=TRUE}
 # remove probes with SNPs at CpG site
 mSetSqFlt <- dropLociWithSnps(mSetSqFlt)
 mSetSqFlt
 ```
 
 We will also filter out probes that have shown to be cross-reactive, that is, probes that have been demonstrated to map to multiple places in the genome. This list was originally published by @Chen2013 and can be obtained from the authors' [website](http://www.sickkids.ca/MS-Office-Files/Research/Weksberg%20Lab/48639-non-specific-probes-Illumina450k.xlsx).
-```{r, cache=TRUE}
+```{r xhybfilter, cache=TRUE}
 # exclude cross reactive probes 
 xReactiveProbes <- read.csv(file=paste(dataDirectory,
                                        "48639-non-specific-probes-Illumina450k.csv",
@@ -309,7 +316,7 @@ legend("right", legend=levels(factor(targets$Sample_Source)), text.col=pal,
 
 The next step is to calculate M-values and beta values. As previously mentioned, M-values have nicer statistical properties and are thus better for use in statistical analysis of methylation data whilst beta values are easy to interpret and are thus better for displaying data. A detailed comparison of M-values and beta values was published by @Du2010.
 
-```{r, cache=TRUE}
+```{r getvals, cache=TRUE}
 # calculate M-values for statistical analysis
 mVals <- getM(mSetSqFlt)
 head(mVals[,1:5])
@@ -332,7 +339,7 @@ The biological question of interest for this particular dataset is to discover d
 
 We are interested in pairwise comparisons between the four cell types, taking into account individual to individual variation. We perform this analysis on the matrix of M-values in *limma*, obtaining moderated t-statistics and associated p-values for each CpG site. The comparison that has the most significantly differentially methylated CpGs is `naïve` vs `rTreg` (n=3021 at 5% false discovery rate (FDR)), while `rTreg` vs `act_rTreg` doesn’t show any significant differential methylation.
 
-```{r, cache=TRUE}
+```{r dmps, cache=TRUE}
 # this is the factor of interest
 cellType <- factor(targets$Sample_Group)
 # this is the individual effect that we need to account for
@@ -362,7 +369,7 @@ summary(decideTests(fit2))
 
 We can extract the tables of differentially expressed CpGs for each comparison, ordered by B-statistic by default, using the `topTable` function in *limma*. The results of the analysis for the first comparison, `naive` vs. `rTreg`, can be saved as a `data.frame` by setting `coef=1`. 
 
-```{r, cache=TRUE}
+```{r annotatedmps, cache=TRUE}
 # get the table of results for the first contrast (naive - rTreg)
 ann450kSub <- ann450k[match(rownames(mVals),ann450k$Name),
                       c(1:4,12:19,24:ncol(ann450k))]
@@ -372,7 +379,7 @@ head(DMPs)
 
 The resulting `data.frame` can easily be written to a CSV file, which can be opened in Excel.
 
-```{r, eval=FALSE}
+```{r write, eval=FALSE}
 write.table(DMPs, file="DMPs.csv", sep=",", row.names=FALSE)
 ```
 
@@ -392,7 +399,7 @@ Although performing a *probe-wise* analysis is useful and informative, sometimes
 
 Firstly, our matrix of M-values is annotated with the relevant information about the probes such as their genomic position, gene annotation, etc. By default, this is done using the `ilmn12.hg19` annotation, but this can be substituted for any argument compatible with the interface provided by the *minfi* package. The *limma* pipeline is then used for differential methylation analysis to calculate moderated t-statistics.
 
-```{r, cache=TRUE}
+```{r cpgannotate, cache=TRUE}
 myAnnotation <- cpg.annotate(mVals, datatype = "array", 
                              analysis.type="differential", design=design, 
                              contrasts = TRUE, cont.matrix = contMatrix, 
@@ -402,13 +409,13 @@ str(myAnnotation)
 
 Once we have the relevant statistics for the individual CpGs, we can then use the `dmrcate` function to combine them to identify differentially methylated regions. The main output table `DMRs$results` contains all of the regions found, along with their genomic annotations and p-values.
 
-```{r, cache=TRUE}
+```{r dmrcate, cache=TRUE}
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2)
 head(DMRs$results)
 ```
 
 As for the probe-wise analysis, it is advisable to visualise the results to ensure that they make sense. The regions can easily be viewed using the `DMR.plot` function provided in the *DMRcate* package.
-```{r, cache=TRUE}
+```{r resultsranges, cache=TRUE}
 # convert the regions to annotated genomic ranges
 data(dmrcatedata)
 results.ranges <- extractRanges(DMRs, genome = "hg19")
@@ -421,23 +428,25 @@ samps <- 1:nrow(targets)
 ```
 
 ```{r figure10, fig.width=10, fig.height=10, fig.cap="DMRcate provides a function for plotting differentially methylated regions in their genomic context."}
-# draw the plot
+# draw the plot for the second DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
+DMR.plot(ranges=results.ranges, dmr=2, CpGs=bVals, phen.col=cols,
          pch=16, toscale=TRUE, plotmedians=TRUE, genome="hg19", samps=samps)
 ```
 
 ## Customising visualisations of methylation data
 
-The *Gviz* package offers powerful functionality for plotting methylation data in its genomic context. The package [vignette](https://bioconductor.org/packages/release/bioc/vignettes/Gviz/inst/doc/Gviz.pdf) is very extensive and covers the various types of plots that can be produced using the *Gviz* framework. We will re-plot the top differentially methylated region from the *DMRcate* regional analysis to demonstrate the type of visualisations that can be created.
+The *Gviz* package offers powerful functionality for plotting methylation data in its genomic context. The package [vignette](https://bioconductor.org/packages/release/bioc/vignettes/Gviz/inst/doc/Gviz.pdf) is very extensive and covers the various types of plots that can be produced using the *Gviz* framework. We will plot one of the  differentially methylated regions from the *DMRcate* analysis to demonstrate the type of visualisations that can be created.
 
 We will first set up the genomic region we would like to plot by extracting the genomic coordinates of the top differentially methylated region.
 
-```{r, cache=TRUE}
+```{r dmrcoord, cache=TRUE}
 # indicate which genome is being used
 gen <- "hg19"
+# the index of the DMR that we will plot 
+dmrIndex <- 11
 # extract chromosome number and location from DMR results 
-coords <- strsplit2(DMRs$results$coord[1],":")
+coords <- strsplit2(DMRs$results$coord[dmrIndex],":")
 chrom <- coords[1]
 start <- as.numeric(strsplit2(coords[2],"-")[1])
 end <- as.numeric(strsplit2(coords[2],"-")[2])
@@ -448,23 +457,20 @@ maxbase <- end + (0.25*(end-start))
 
 Next, we will add some genomic annotations of interest such as the locations of CpG islands and DNAseI hypersensitive sites; this can be any feature or genomic annotation of interest that you have data available for. The CpG islands data was generated using the method published by @Wu2010; the DNAseI hypersensitive site data was obtained from the [UCSC Genome Browser](https://genome.ucsc.edu/cgi-bin/hgTables).
 
-```{r, cache=TRUE}
+```{r extrafeatures, cache=TRUE}
 # CpG islands
-islandHMM = read.csv(paste(dataDirectory, "model-based-cpg-islands-hg19.txt",
+islandHMM = read.csv(paste(dataDirectory, "model-based-cpg-islands-hg19-chr22.txt",
                            sep="/"),
-                     sep="\t", stringsAsFactors=FALSE, header=TRUE)
+                     sep="\t", stringsAsFactors=FALSE, header=FALSE)
 head(islandHMM)
 
-islandData <- GRanges(seqnames=Rle(islandHMM$chr), 
-                      ranges=IRanges(start=islandHMM$start, end=islandHMM$end),
+islandData <- GRanges(seqnames=Rle(islandHMM[,1]), 
+                      ranges=IRanges(start=islandHMM[,2], end=islandHMM[,3]),
                       strand=Rle(strand(rep("*",nrow(islandHMM)))))
-islandData <- islandData[seqnames(islandData) == chrom & 
-                             (start(islandData) >= minbase & 
-                                  end(islandData) <= maxbase)]
 islandData
 
 # DNAseI hypersensitive sites
-dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3.bed",
+dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3chr22.bed",
                         sep="/"),
                   sep="\t",stringsAsFactors=FALSE,header=FALSE)
 head(dnase)
@@ -473,15 +479,11 @@ dnaseData <- GRanges(seqnames=dnase[,1],
                      ranges=IRanges(start=dnase[,2], end=dnase[,3]),
                      strand=Rle(rep("*",nrow(dnase))),
                      data=dnase[,5])
-dnaseData <- dnaseData[seqnames(dnaseData) == chrom &
-                          (start(dnaseData) >= minbase & 
-                               end(dnaseData) <= maxbase)] 
 dnaseData
-
 ```
 
 Now, set up the ideogram, genome and RefSeq tracks that will provide context for our methylation data. 
-```{r, cache=TRUE}
+```{r gentracks, cache=TRUE}
 iTrack <- IdeogramTrack(genome = gen, chromosome = chrom, name="")
 gTrack <- GenomeAxisTrack(col="black", cex=1, name="", fontcolor="black")
 rTrack <- UcscTrack(genome=gen, chromosome=chrom, track="refGene", 
@@ -493,7 +495,7 @@ rTrack <- UcscTrack(genome=gen, chromosome=chrom, track="refGene",
 ```
 
 Ensure that the methylation data is ordered by chromosome and base position.
-```{r, cache=TRUE}
+```{r order, cache=TRUE}
 ann450kOrd <- ann450kSub[order(ann450kSub$chr,ann450kSub$pos),]
 head(ann450kOrd)
 
@@ -502,14 +504,14 @@ head(bValsOrd)
 ```
 
 Create the data tracks using the appropriate track type for each data type.
-```{r, cache=TRUE}
+```{r featuretracks, cache=TRUE}
 # create genomic ranges object from methylation data
 cpgData <- GRanges(seqnames=Rle(ann450kOrd$chr),
                    ranges=IRanges(start=ann450kOrd$pos, end=ann450kOrd$pos),
                    strand=Rle(rep("*",nrow(ann450kOrd))),
                    betas=bValsOrd)
 # extract data on CpGs in DMR
-cpgData <- subsetByOverlaps(cpgData, results.ranges[1])
+cpgData <- subsetByOverlaps(cpgData, results.ranges[dmrIndex])
 
 # methylation data track
 methTrack <- DataTrack(range=cpgData, groups=targets$Sample_Group,genome = gen,
@@ -519,7 +521,7 @@ methTrack <- DataTrack(range=cpgData, groups=targets$Sample_Group,genome = gen,
                        cex.axis=0.8, cex.legend=0.8)
 # CpG island track
 islandTrack <- AnnotationTrack(range=islandData, genome=gen, name="CpG Is.", 
-                               chromosome=chrom)
+                               chromosome=chrom,fill="darkgreen")
 
 # DNaseI hypersensitive site data track
 dnaseTrack <- DataTrack(range=dnaseData, genome=gen, name="DNAseI", 
@@ -527,7 +529,7 @@ dnaseTrack <- DataTrack(range=dnaseData, genome=gen, name="DNAseI",
 
 # DMR position data track
 dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR", 
-                            chromosome=chrom)
+                            chromosome=chrom,fill="darkred")
 ```
 
 Set up the track list and indicate the relative sizes of the different tracks. Finally, draw the plot using the `plotTracks` function.
@@ -548,7 +550,7 @@ Once you have performed a differential methylation analysis, there may be a very
 
 Let us consider the first comparison, naive vs rTreg, with the results of the analysis in the `DMPs` table. The `gometh` function takes as input a character vector of the names (e.g. cg20832020) of the significant CpG sites, and optionally, a character vector of all CpGs tested. This is recommended particularly if extensive filtering of the CpGs has been performed prior to analysis. For gene ontology testing (default), the user can specify `collection=``GO”`; for KEGG testing `collection=``KEGG”`. In the `DMPs` table, the `Name` column corresponds to the CpG name. We will select all CpG sites that have adjusted p-value of less than 0.05.
 
-```{r, cache=TRUE}
+```{r gomethsetup, cache=TRUE}
 # Get the significant CpG sites at less than 5% FDR
 sigCpGs <- DMPs$Name[DMPs$adj.P.Val<0.05]
 # First 10 significant CpGs
@@ -570,7 +572,7 @@ gst <- gometh(sig.cpg=sigCpGs, all.cpg=all, plot.bias=TRUE)
 
 The `gst` object is a `data.frame` with each row corresponding to the GO category being tested. The top 20 gene ontology categories can be displayed using the `topGO` function. For KEGG pathway analysis, the `topKEGG` function can be called to display the top 20 enriched pathways.
 
-```{r, cache=TRUE}
+```{r topgo, cache=TRUE}
 # Top 10 GO categories
 topGO(gst, number=10)
 ```
@@ -579,23 +581,7 @@ From the output we can see many of the top GO categories correspond to immune sy
 
 For a more generalised version of gene set testing for methylation data where the user can specify the gene set to be tested, the `gsameth` function can be used. To display the top 20 pathways, `topGSA` can be called. `gsameth` accepts a single gene set, or a list of gene sets. The gene identifiers in the gene set must be Entrez Gene IDs. To demonstrate `gsameth`, we are using the curated genesets (C2) from the Broad Institute Molecular signatures [database](http://software.broadinstitute.org/gsea/msigdb). These can be downloaded as an `RData` object from the WEHI Bioinformatics [website](http://bioinf.wehi.edu.au/software/MSigDB/).  
 
-<!-- ```{r, echo=FALSE, results='hide', cache=TRUE} -->
-<!-- if(grepl("group",projectDirectory)){ -->
-<!--     source("/group/bioi1/jovanam/R_packages/gsameth.R") -->
-<!--     source("/group/bioi1/jovanam/R_packages/gometh.R") -->
-<!--     source("/group/bioi1/jovanam/R_packages/kegga.R") -->
-<!-- } else if (grepl("X:",projectDirectory)){ -->
-<!--     source("X:/jovanam/R_packages/gsameth.R") -->
-<!--     source("X:/jovanam/R_packages/gometh.R") -->
-<!--     source("X:/jovanam/R_packages/kegga.R") -->
-<!-- } else if (grepl("mnt",projectDirectory)){ -->
-<!--     source("/mnt/storage/jovanam/R_packages/gsameth.R") -->
-<!--     source("/mnt/storage/jovanam/R_packages/gometh.R") -->
-<!--     source("/mnt/storage/jovanam/R_packages/kegga.R") -->
-<!-- } -->
-<!-- ``` -->
-
-```{r, cache=TRUE}
+```{r topgsa, cache=TRUE}
 # load Broad human curated (C2) gene sets
 load(paste(dataDirectory,"human_c2_v5.rdata",sep="/"))
 # perform the gene set test(s)
@@ -609,11 +595,11 @@ topGSA(gsa, number=10)
 
 Rather than testing for differences in mean methylation, we may be interested in testing for differences between group variances. For example, it has been hypothesised that highly variable CpGs in cancer are important for tumour progression. Hence we may be interested in CpG sites that are consistently methylated in one group, but variably methylated in another group. 
 
-Sample size is an important consideration when testing for differentially variable CpG sites. In order to get an accurate estimate of the group variances, larger sample sizes are required than for estimating group means. A good rule of thumb is to have at least ten samples in each group [@Phipson2014]. To demonstrate testing for differentially variable CpG sites, we will use a publicly available dataset on ageing, where whole blood samples were collected from 18 centenarians and 18 newborns and profiled for methylation on the 450k array [@Heyn2012]. We will first need to load, normalise and filter the data as previously described. 
+Sample size is an important consideration when testing for differentially variable CpG sites. In order to get an accurate estimate of the group variances, larger sample sizes are required than for estimating group means. A good rule of thumb is to have at least ten samples in each group [@Phipson2014]. To demonstrate testing for differentially variable CpG sites, we will use a publicly available dataset on ageing [GSE30870](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE30870), where whole blood samples were collected from 18 centenarians and 18 newborns and profiled for methylation on the 450k array [@Heyn2012]. The data (`age.rgSet`) and sample information (`age.targets`) have been included as an R data object in the data archive you previously downloaded from [figshare](`r cat(url)`). We can load the data using the `load` command, after which it needs to be normalised and filtered as previously described. 
 
-```{r, cache=TRUE}
+```{r agedata, cache=TRUE}
 # load data
-load(paste(dataDirectory,"age.data.RData",sep="/"))
+load(paste(dataDirectory,"ageData.RData",sep="/"))
 
 # calculate detection p-values
 age.detP <- detectionP(age.rgSet)
@@ -664,7 +650,7 @@ age.mSetSqFlt <- age.mSetSqFlt[keep,]
 
 We can test for differentially variable CpGs using the `varFit` function in the *missMethyl* package. The syntax for specifying which groups we are interested in testing is slightly different to the standard way a model is specified in `limma`, particularly for designs where an intercept is fitted (see *missMethyl* [vignette](https://www.bioconductor.org/packages/release/bioc/vignettes/missMethyl/inst/doc/missMethyl.pdf) for further details). For the ageing data, the design matrix includes an intercept term, and a term for age. The `coef` argument in the `varFit` function indicates which columns of the design matrix correspond to the intercept and grouping factor. Thus, for the ageing dataset we set `coef=c(1,2)`. Note that design matrices without intercept terms are permitted, with specific contrasts tested using the `contrasts.varFit` function.
 
-```{r, cache=TRUE}
+```{r agedvps, cache=TRUE}
 # get M-values for analysis
 age.mVals <- getM(age.mSetSqFlt)
 
@@ -682,7 +668,7 @@ topDV
 
 Similarly to the differential methylation analysis, is it useful to plot sample-wise beta values for the differentially variable CpGs to ensure the significant results are not driven by artifacts or outliers.
 
-```{r, cache=TRUE}
+```{r agevals, cache=TRUE}
 # get beta values for ageing data
 age.bVals <- getBeta(age.mSetSqFlt)
 ```
@@ -700,7 +686,7 @@ An example of testing for differential variability when the design matrix does n
 
 As methylation is cell type specific and methylation arrays provide CpG methylation values for a population of cells, biological findings from samples that are comprised of a mixture of cell types, such as blood, can be confounded with cell type composition [@Jaffe2014]. The *minfi* function `estimateCellCounts` facilitates the estimation of the level of confounding between phenotype and cell type composition in a set of samples. The function uses a modified version of the method published by @Houseman2012 and the package `FlowSorted.Blood.450k`, which contains 450k methylation data from sorted blood cells, to estimate the cell type composition of blood samples. 
 
-```{r, cache=TRUE}
+```{r cellcounts, cache=TRUE}
 # load sorted blood cell data package
 library(FlowSorted.Blood.450k)
 # ensure that the "Slide" column of the rgSet pheno data is numeric
@@ -730,7 +716,7 @@ Here we present a commonly used workflow for methylation array analysis based on
 
 # Software versions
 
-```{r}
+```{r sessioninfo}
 sessionInfo()
 ```
 
