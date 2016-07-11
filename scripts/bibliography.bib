@@ -76,7 +76,7 @@ year = {2013}
 }
 
 @article{Aryee2014,
-abstract = {MOTIVATION: The recently released Infinium HumanMethylation450 array (the '450k' array) provides a high-throughput assay to quantify DNA methylation (DNAm) at ∼450 000 loci across a range of genomic features. Although less comprehensive than high-throughput sequencing-based techniques, this product is more cost-effective and promises to be the most widely used DNAm high-throughput measurement technology over the next several years.
+abstract = {MOTIVATION: The recently released Infinium HumanMethylation450 array (the '450k' array) provides a high-throughput assay to quantify DNA methylation (DNAm) at ?450 000 loci across a range of genomic features. Although less comprehensive than high-throughput sequencing-based techniques, this product is more cost-effective and promises to be the most widely used DNAm high-throughput measurement technology over the next several years.
 
 RESULTS: Here we describe a suite of computational tools that incorporate state-of-the-art statistical techniques for the analysis of DNAm data. The software is structured to easily adapt to future versions of the technology. We include methods for preprocessing, quality assessment and detection of differentially methylated regions from the kilobase to the megabase scale. We show how our software provides a powerful and flexible development platform for future methods. We also illustrate how our methods empower the technology to make discoveries previously thought to be possible only with sequencing-based methods.
 
@@ -103,7 +103,7 @@ year = {2014}
 }
 
 @article{Phipson2016,
-abstract = {DNA methylation is one of the most commonly studied epigenetic modifications due to its role in both disease and development. The Illumina HumanMethylation450 BeadChip is a cost-effective way to profile {\textgreater}450 000 CpGs across the human genome, making it a popular platform for profiling DNA methylation. Here we introduce missMethyl, an R package with a suite of tools for performing normalization, removal of unwanted variation in differential methylation analysis, differential variability testing and gene set analysis for the 450K array.
+abstract = {DNA methylation is one of the most commonly studied epigenetic modifications due to its role in both disease and development. The Illumina HumanMethylation450 BeadChip is a cost-effective way to profile {\textgreater}450?000 CpGs across the human genome, making it a popular platform for profiling DNA methylation. Here we introduce missMethyl, an R package with a suite of tools for performing normalization, removal of unwanted variation in differential methylation analysis, differential variability testing and gene set analysis for the 450K array.
 
 AVAILABILITY AND IMPLEMENTATION: missMethyl is an R package available from the Bioconductor project at www.bioconductor.org.
 
@@ -724,4 +724,64 @@ url = {http://f1000research.com/articles/2-264/v1},
 volume = {2},
 year = {2013}
 }
+
+@article{benjamini1995fdr,
+author = {Benjamini, Y and Hochberg, Y},
+journal = {Journal of the Royal Statistical Society: Series B},
+pages = {289--300},
+title = {{Controlling the false discovery rate: a practical and powerful approach to multiple testing}},
+volume = {57},
+year = {1995}
+}
+
+@article{smyth2004ebayes,
+author = {Smyth, G K},
+journal = {Statistical applications in genetics and molecular biology},
+number = {1},
+pages = {Article{\~{}}3},
+publisher = {bepress},
+title = {{Linear models and empirical Bayes methods for assessing differential expression in microarray experiments}},
+volume = {3},
+year = {2004}
+}
+
+@article{hicks2015quantro,
+  title={quantro: a data-driven approach to guide the choice of an appropriate normalization method},
+  author={Hicks, Stephanie C and Irizarry, Rafael A},
+  journal={Genome biology},
+  volume={16},
+  number={1},
+  pages={1},
+  year={2015},
+  publisher={BioMed Central}
+}
+
+@article{lonnstedt2002replicated,
+author = {Lonnstedt, I and Speed, T},
+journal = {Statistica Sinica},
+pages = {31--46},
+title = {{Replicated Microarray Data}},
+volume = {12},
+year = {2002}
+}
+
+@article{Hansen2011,
+abstract = {Tumor heterogeneity is a major barrier to effective cancer diagnosis and treatment. We recently identified cancer-specific differentially DNA-methylated regions (cDMRs) in colon cancer, which also distinguish normal tissue types from each other, suggesting that these cDMRs might be generalized across cancer types. Here we show stochastic methylation variation of the same cDMRs, distinguishing cancer from normal tissue, in colon, lung, breast, thyroid and Wilms' tumors, with intermediate variation in adenomas. Whole-genome bisulfite sequencing shows these variable cDMRs are related to loss of sharply delimited methylation boundaries at CpG islands. Furthermore, we find hypomethylation of discrete blocks encompassing half the genome, with extreme gene expression variability. Genes associated with the cDMRs and large blocks are involved in mitosis and matrix remodeling, respectively. We suggest a model for cancer involving loss of epigenetic stability of well-defined genomic domains that underlies increased methylation variability in cancer that may contribute to tumor heterogeneity.},
+author = {Hansen, Kasper Daniel and Timp, Winston and Bravo, H{\'{e}}ctor Corrada and Sabunciyan, Sarven and Langmead, Benjamin and McDonald, Oliver G and Wen, Bo and Wu, Hao and Liu, Yun and Diep, Dinh and Briem, Eirikur and Zhang, Kun and Irizarry, Rafael a and Feinberg, Andrew P},
+doi = {10.1038/ng.865},
+file = {:D$\backslash$:/{\_}MCRI/{\_}Research projects/Differential Variability/DiffMethVarNatureGen.pdf:pdf},
+issn = {1546-1718},
+journal = {Nature genetics},
+keywords = {CpG Islands,CpG Islands: genetics,DNA Methylation,DNA, Neoplasm,DNA, Neoplasm: genetics,Epigenomics,Gene Expression Profiling,Gene Expression Regulation, Neoplastic,Genetic Variation,Genetic Variation: genetics,Humans,Neoplasms,Neoplasms: classification,Neoplasms: genetics,Oligonucleotide Array Sequence Analysis,Promoter Regions, Genetic,Sulfites,Tumor Markers, Biological,Tumor Markers, Biological: genetics},
+month = {aug},
+number = {8},
+pages = {768--75},
+pmid = {21706001},
+publisher = {Nature Publishing Group},
+title = {{Increased methylation variation in epigenetic domains across cancer types.}},
+url = {http://www.pubmedcentral.nih.gov/articlerender.fcgi?artid=3145050{\&}tool=pmcentrez{\&}rendertype=abstract},
+volume = {43},
+year = {2011}
+}
+
 
