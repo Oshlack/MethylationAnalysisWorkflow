@@ -54,13 +54,28 @@ In this workflow, we will provide examples of the steps involved in analysing me
 
 ## Obtaining the data
 
-The data required for this workflow can be obtained from [figshare](https://figshare.com/s/7a37f43c0ca2fec4669e). Once the data has been downloaded, it needs to be extracted from the archive. This will create a folder called `data`, which contains all the files necessary to execute the workflow.
+All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from [figshare](https://figshare.com/s/7a37f43c0ca2fec4669e).
+
+```{r getdata}
+# the URL for the data download
+url <- "https://ndownloader.figshare.com/files/5466326?private_link=7a37f43c0ca2fec4669e"
+# download the data
+if(!file.exists("methylAnalysisData.tar.gz")){
+    download.file(url, destfile="methylAnalysisData.tar.gz", method="wget", quiet=TRUE) 
+}
+# extract the data
+if(!file.exists("./data")){
+    untar("methylAnalysisData.tar.gz", exdir=".", compressed="gzip")
+}
+```
+
+Once the data has been downloaded and extracted, there should be a folder called `data` that contains all the files necessary to execute the workflow.
 
 ```{r datadir}
 # set up a path to the data directory
 dataDirectory <- "./data"
 # list the files
-list.files(dataDirectory, recursive = TRUE)
+list.files(dataDirectory, recursive=TRUE)
 ```
 
 ```{r readtargets, echo=FALSE, results='hide', cache=TRUE, message=FALSE}
@@ -68,10 +83,6 @@ targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 ```
 
 To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total: there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`, collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. An additional `birth` sample (individual `r targets$Sample_Source[targets$Sample_Group == "birth"]`) is included from another study [@Cruickshank2013] to illustrate approaches for identifying and excluding poor quality samples. 
-
-```{r viewtargets, echo=FALSE}
-targets[,c("Sample_Name","Sample_Source", "Sample_Group")]
-```
 
 There are several R Bioconductor packages available that have been developed for analysing methylation array data, including *minfi* [@Aryee2014], *missMethyl* [@Phipson2016], *wateRmelon* [@Pidsley2013], *methylumi* [@Davis2015], *ChAMP* [@Morris2014] and *charm* [@Aryee2011]. Some of the packages, such as *minfi* and *methylumi* include a framework for reading in the raw data from IDAT files and various specialised objects for storing and manipulating the data throughout the course of an analysis. Other packages provide specialised analysis methods for normalisation and statistical testing that rely on either *minfi* or *methylumi* objects. It is possible to convert between *minfi* and *methylumi* data types, however, this is not always trivial. Thus, it is advisable to consider the methods that you are interested in using and the data types that are most appropriate before you begin your analysis. Another popular method for analysing methylation array data is *limma* [@Ritchie2015], which was originally developed for gene expression microarray analysis. As *limma* operates on a matrix of values, it is easily applied to any data that can be converted to a `matrix` in R. For a complete list of Bioconductor packages for analysing DNA methylation data, one can search for ``DNAMethylation" in BiocViews on the Bioconductor website.         
 
@@ -106,7 +117,7 @@ head(ann450k)
 
 As for their many other BeadArray platforms, Illumina methylation data is typically obtained in the form of Intensity Data (IDAT) Files. This is a proprietary format that is output by the scanner and stores summary intensities for each probe on the array. However, there are Bioconductor packages available that facilitate the import of data from IDAT files into R [@Smith2013]. The simplest way to import the raw methylation data into R is using the *minfi* function `read.metharray.sheet`, along with the path to the IDAT files and a sample sheet. The sample sheet is a CSV (comma-separated) file containing one line per sample, with a number of columns describing each sample. The format expected by the `read.metharray.sheet` function is based on the sample sheet file that usually accompanies Illumina methylation array data. It is also very similar to the targets file described by the *limma* package. Importing the sample sheet into R creates a `data.frame` with one row for each sample and several columns. The `read.metharray.sheet` function uses the specified path and other information from the sample sheet to create a column called `Basename` which specifies the location of each individual IDAT file in the experiment.
 
-```{r readtargets_noeval, eval=FALSE}
+```{r readtargets_noeval}
 # read in the sample sheet for the experiment
 targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 targets
@@ -131,7 +142,7 @@ Once the data has been imported into R, we can evaluate its quality. Firstly, we
 
 Plotting the mean detection p-value for each sample allows us to gauge the general quality of the samples in terms of the overall signal reliability. Samples that have many failed probes will have relatively large mean detection p-values. 
 
-```{r figure2, fig.width=10, fig.height=5, fig.cap="Mean detection p-values summarise the quality of the signal across all the probes in each sample."}
+```{r figure2, fig.width=10, fig.height=5, fig.cap="Mean detection p-values summarise the quality of the signal across all the probes in each sample. The plot on the right is a zoomed in version of the plot on the left."}
 # calculate the detection p-values
 detP <- detectionP(rgSet)
 head(detP)
@@ -140,15 +151,14 @@ head(detP)
 pal <- brewer.pal(8,"Dark2")
 par(mfrow=c(1,2))
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylab="Mean detection p-values")
-abline(h=0.05,col="red")
+        cex.names=0.8, ylim=c(0,0.015),ylab="Mean detection p-values")
+abline(h=0.01,col="red")
 legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal,
        bg="white")
 
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylim=c(0,0.002), ylab="Mean detection p-values")
-abline(h=0.05,col="red")
-legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal, 
+        cex.names=0.8, ylab="Mean detection p-values")
+legend("top", legend=levels(factor(targets$Sample_Group)), fill=pal, 
        bg="white")
 ```
 
@@ -179,7 +189,7 @@ dim(detP)
 ## Normalisation
 
 To minimise the unwanted variation within and between samples, various data Normalisations can be applied. Many different types of Normalisation have been developed for methylation arrays and it is beyond the scope of this workflow to compare and contrast all of them [@Fortin2014; @Wu2014; @Sun2011; @Wang2012; @Maksimovic2012; @Mancuso2011; @Touleimat2012; @Teschendorff2013; @Pidsley2013; @Triche2013]. Several methods have been built into *minfi* and can be directly applied within its framework [@Fortin2014; @Triche2013; @Maksimovic2012; @Touleimat2012], whilst others are *methylumi*-specific or require custom data types [@Wu2014; @Sun2011; @Wang2012; @Mancuso2011; @Teschendorff2013; @Pidsley2013]. Although there is no single normalisation method that is universally considered best, a recent study by @Fortin2014 has suggested that a good rule of thumb within the *minfi* framework is that the `preprocessFunnorm` [@Fortin2014] function is most appropriate for datasets with global methylation differences such as cancer/normal or vastly different tissue types, whilst the `preprocessQuantile` function [@Touleimat2012] is more suited for datasets where you do not expect global differences between your samples, for example a single tissue. Further discussion on appropriate choice of normalisation can be found in [@hicks2015quantro], and the accompanying *quantro* package includes data-driven tests for the assumptions of quantile normalisation.
-As we are comparing different blood cell types, which are globally relatively similar, we will apply the `preprocessQuantile` method to our data. This function implements a stratified quantile normalisation procedure which is applied to the methylated and unmethylated signal intensities separately, and takes into account the different probe types. Note that after Normalisation, the data is housed in a `GenomicRatioSet` object. This is a much more compact representation of the data as the colour channel information has been discarded and the $M$ and $U$ intensity information has been converted to M-values and beta values, together with associated genomic coordinates.  
+As we are comparing different blood cell types, which are globally relatively similar, we will apply the `preprocessQuantile` method to our data. This function implements a stratified quantile normalisation procedure which is applied to the methylated and unmethylated signal intensities separately, and takes into account the different probe types. Note that after Normalisation, the data is housed in a `GenomicRatioSet` object. This is a much more compact representation of the data as the colour channel information has been discarded and the $M$ and $U$ intensity information has been converted to M-values and beta values, together with associated genomic coordinates. Note, running the `preprocessQuantile` function on this dataset produces the warning: **'An inconsistency was encountered while determining sex'**; this can be ignored as it is due to all the samples being from male donors.  
 
 ```{r norm, cache=TRUE}
 # normalize the data; this results in a GenomicRatioSet object
@@ -193,8 +203,12 @@ mSetRaw <- preprocessRaw(rgSet)
 # visualise what the data looks like before and after Normalisation
 par(mfrow=c(1,2))
 densityPlot(rgSet, sampGroups=targets$Sample_Group,main="Raw", legend=FALSE)
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Group,
             main="Normalized", legend=FALSE)
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 ```
 
 ## Data exploration
@@ -331,8 +345,12 @@ head(bVals[,1:5])
 par(mfrow=c(1,2))
 densityPlot(bVals, sampGroups=targets$Sample_Group, main="Beta values", 
             legend=FALSE, xlab="Beta values")
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 densityPlot(mVals, sampGroups=targets$Sample_Group, main="M-values", 
             legend=FALSE, xlab="M values")
+legend("topleft", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 ```
 
 ## Probe-wise differential methylation analysis
@@ -395,7 +413,7 @@ It is always useful to plot sample-wise methylation levels for the top different
 # plot the top 4 most significantly differentially methylated CpGs 
 par(mfrow=c(2,2))
 sapply(rownames(DMPs)[1:4], function(cpg){
-  plotCpg(bVals, cpg=cpg, pheno=targets$Sample_Group)
+  plotCpg(bVals, cpg=cpg, pheno=targets$Sample_Group, ylab = "Beta values")
 })
 ```
 
@@ -415,7 +433,7 @@ str(myAnnotation)
 
 Once we have the relevant statistics for the individual CpGs, we can then use the `dmrcate` function to combine them to identify differentially methylated regions. The main output table `DMRs$results` contains all of the regions found, along with their genomic annotations and p-values.
 
-```{r dmrcate, cache=TRUE}
+```{r dmrcate, cache=TRUE, message=FALSE}
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2)
 head(DMRs$results)
 ```
@@ -433,10 +451,10 @@ cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 ```
 
-```{r figure10, fig.width=10, fig.height=10, fig.cap="DMRcate provides a function for plotting differentially methylated regions in their genomic context."}
+```{r figure10, fig.width=10, fig.height=10, fig.cap="The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."}
 # draw the plot for the second DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges=results.ranges, dmr=2, CpGs=bVals, phen.col=cols,
+DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
          pch=16, toscale=TRUE, plotmedians=TRUE, genome="hg19", samps=samps)
 ```
 
@@ -585,7 +603,7 @@ The top 20 gene ontology categories can be displayed using the `topGO` function.
 topGO(gst, number=10)
 ```
 
-From the output we can see many of the top GO categories correspond to immune system and T cell processes, which is unsurprising as the cell types being studied form part of the immune system. Typically, we consider GO categories that have associated false discovery rates of less than 5\% to be statistically significant. . If there aren't any categories that achieve this significance it may be useful to scan the top 5 or 10 highly ranked GO categories to gain some insight into the biological system.
+From the output we can see many of the top GO categories correspond to immune system and T cell processes, which is unsurprising as the cell types being studied form part of the immune system. Typically, we consider GO categories that have associated false discovery rates of less than 5\% to be statistically significant. If there aren't any categories that achieve this significance it may be useful to scan the top 5 or 10 highly ranked GO categories to gain some insight into the biological system.
 
 The `gometh` function only tests GO and KEGG pathways. For a more generalised version of gene set testing for methylation data where the user can specify the gene set to be tested, the `gsameth` function can be used. To display the top 20 pathways, `topGSA` can be called. `gsameth` accepts a single gene set, or a list of gene sets. The gene identifiers in the gene set must be Entrez Gene IDs. To demonstrate `gsameth`, we are using the curated genesets (C2) from the Broad Institute Molecular signatures [database](http://software.broadinstitute.org/gsea/msigdb). These can be downloaded as an `RData` object from the WEHI Bioinformatics [website](http://bioinf.wehi.edu.au/software/MSigDB/).  
 
@@ -686,7 +704,7 @@ age.bVals <- getBeta(age.mSetSqFlt)
 ```{r figure14, fig.width=10, fig.height=10, results='hide', fig.cap="As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."}
 par(mfrow=c(2,2))
 sapply(rownames(topDV)[1:4], function(cpg){
-  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group)
+  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, ylab = "Beta values")
 })
 ```
 
