@@ -1,5 +1,5 @@
 ## ----setup, include=FALSE------------------------------------------------
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=70))
 
 ## ----libload, results="hide", echo=FALSE, message=FALSE------------------
 library(limma)
@@ -18,8 +18,10 @@ library(stringr)
 # the URL for the data download
 url <- "https://ndownloader.figshare.com/files/5466326?private_link=7a37f43c0ca2fec4669e"
 # download the data
+if(Sys.info()["sysname"] == "Linux") method <- "wget" else method <- "auto"
 if(!file.exists("methylAnalysisData.tar.gz")){
-    download.file(url, destfile="methylAnalysisData.tar.gz", method="wget", quiet=TRUE) 
+    download.file(url, destfile="methylAnalysisData.tar.gz", method=method, 
+                  quiet=TRUE) 
 }
 # extract the data
 if(!file.exists("./data")){
@@ -48,7 +50,6 @@ targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 ## library(Gviz)
 ## library(DMRcate)
 ## library(stringr)
-## library(GEOquery)
 
 ## ----annotations, cache=TRUE---------------------------------------------
 # get the 450k annotation data
@@ -70,7 +71,7 @@ targets$ID <- paste(targets$Sample_Group,targets$Sample_Name,sep=".")
 sampleNames(rgSet) <- targets$ID
 rgSet
 
-## ----figure2, fig.width=10, fig.height=5, fig.cap="Mean detection p-values summarise the quality of the signal across all the probes in each sample. The plot on the right is a zoomed in version of the plot on the left."----
+## ----figure2, fig.width=10, fig.height=5, fig.cap="\\label{fig:figure2}Mean detection p-values summarise the quality of the signal across all the probes in each sample. The plot on the right is a zoomed in version of the plot on the left."----
 # calculate the detection p-values
 detP <- detectionP(rgSet)
 head(detP)
@@ -79,14 +80,14 @@ head(detP)
 pal <- brewer.pal(8,"Dark2")
 par(mfrow=c(1,2))
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylim=c(0,0.015),ylab="Mean detection p-values")
+        cex.names=0.8,ylab="Mean detection p-values")
 abline(h=0.01,col="red")
 legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal,
        bg="white")
 
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylab="Mean detection p-values")
-legend("top", legend=levels(factor(targets$Sample_Group)), fill=pal, 
+        cex.names=0.8, ylim = c(0,0.002), ylab="Mean detection p-values")
+legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal, 
        bg="white")
 
 ## ----qcreport, eval=FALSE------------------------------------------------
@@ -114,7 +115,7 @@ mSetSq <- preprocessQuantile(rgSet)
 # create a MethylSet object from the raw data for plotting
 mSetRaw <- preprocessRaw(rgSet)
 
-## ----figure3, fig.width=10, fig.height=5, fig.cap="The density plots show the distribution of the beta values for each sample before and after Normalisation."----
+## ----figure3, fig.width=10, fig.height=5, fig.cap="\\label{fig:figure3}The density plots show the distribution of the beta values for each sample before and after Normalisation."----
 # visualise what the data looks like before and after Normalisation
 par(mfrow=c(1,2))
 densityPlot(rgSet, sampGroups=targets$Sample_Group,main="Raw", legend=FALSE)
@@ -125,7 +126,7 @@ densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Group,
 legend("top", legend = levels(factor(targets$Sample_Group)), 
        text.col=brewer.pal(8,"Dark2"))
 
-## ----figure4, fig.height=5, fig.width=10, fig.cap="Multi-dimensional scaling plots are a good way to visualise the relationships between the samples in an experiment."----
+## ----figure4, fig.height=5, fig.width=10, fig.cap="\\label{fig:figure4}Multi-dimensional scaling plots are a good way to visualise the relationships between the samples in an experiment."----
 # MDS plots to look at largest sources of variation
 par(mfrow=c(1,2))
 plotMDS(getM(mSetSq), top=1000, gene.selection="common", 
@@ -138,7 +139,7 @@ plotMDS(getM(mSetSq), top=1000, gene.selection="common",
 legend("top", legend=levels(factor(targets$Sample_Source)), text.col=pal,
        bg="white", cex=0.7)
 
-## ----figure5, fig.width=9, fig.height=3, fig.cap="Examining the higher dimensions of an MDS plot can reaveal significant sources of variation in the data."----
+## ----figure5, fig.width=9, fig.height=3, fig.cap="\\label{fig:figure5}Examining the higher dimensions of an MDS plot can reaveal significant sources of variation in the data."----
 # Examine higher dimensions to look at other sources of variation
 par(mfrow=c(1,3))
 plotMDS(getM(mSetSq), top=1000, gene.selection="common", 
@@ -190,7 +191,7 @@ table(keep)
 mSetSqFlt <- mSetSqFlt[keep,] 
 mSetSqFlt
 
-## ----figure6, fig.width=10, fig.height=5, fig.cap="Removing SNP-affected CpGs probes from the data changes the sample clustering in the MDS plots."----
+## ----figure6, fig.width=10, fig.height=5, fig.cap="\\label{fig:figure6}Removing SNP-affected CpGs probes from the data changes the sample clustering in the MDS plots."----
 par(mfrow=c(1,2))
 plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common", 
         col=pal[factor(targets$Sample_Group)], cex=0.8)
@@ -202,7 +203,7 @@ plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common",
 legend("right", legend=levels(factor(targets$Sample_Source)), text.col=pal,
        cex=0.7, bg="white")
 
-## ----figure7, fig.width=9, fig.height=3, fig.cap="Examining the higher dimensions of the MDS plots shows that significant inter-individual variation still exists in the second and third principal components."----
+## ----figure7, fig.width=9, fig.height=3, fig.cap="\\label{fig:figure7}Examining the higher dimensions of the MDS plots shows that significant inter-individual variation still exists in the second and third principal components."----
 par(mfrow=c(1,3))
 # Examine higher dimensions to look at other sources of variation
 plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common", 
@@ -228,7 +229,7 @@ head(mVals[,1:5])
 bVals <- getBeta(mSetSqFlt)
 head(bVals[,1:5])
 
-## ----figure8, fig.width=10,fig.height=5, fig.cap="The distributions of beta and M-values are quite different; beta values are constrained between 0 and 1 whilst M-values range between -Inf and Inf."----
+## ----figure8, fig.width=10,fig.height=5, fig.cap="\\label{fig:figure8}The distributions of beta and M-values are quite different; beta values are constrained between 0 and 1 whilst M-values range between -Inf and Inf."----
 par(mfrow=c(1,2))
 densityPlot(bVals, sampGroups=targets$Sample_Group, main="Beta values", 
             legend=FALSE, xlab="Beta values")
@@ -276,7 +277,7 @@ head(DMPs)
 ## ----write, eval=FALSE---------------------------------------------------
 ## write.table(DMPs, file="DMPs.csv", sep=",", row.names=FALSE)
 
-## ----figure9, fig.width=10, fig.height=10, fig.cap="Plotting the top few differentially methylated CpGs is a good way to check whether the results make sense."----
+## ----figure9, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure9}Plotting the top few differentially methylated CpGs is a good way to check whether the results make sense."----
 # plot the top 4 most significantly differentially methylated CpGs 
 par(mfrow=c(2,2))
 sapply(rownames(DMPs)[1:4], function(cpg){
@@ -305,7 +306,7 @@ names(groups) <- levels(factor(targets$Sample_Group))
 cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 
-## ----figure10, fig.width=10, fig.height=10, fig.cap="The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."----
+## ----figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."----
 # draw the plot for the second DMR
 par(mfrow=c(1,1))
 DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
@@ -393,7 +394,7 @@ dnaseTrack <- DataTrack(range=dnaseData, genome=gen, name="DNAseI",
 dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR", 
                             chromosome=chrom,fill="darkred")
 
-## ----figure11, fig.width=10, fig.height=6, fig.cap="The Gviz package provides extensive functionality for customising plots of genomic regions."----
+## ----figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions."----
 tracks <- list(iTrack, gTrack, methTrack, dmrTrack, islandTrack, dnaseTrack,
                rTrack)
 sizes <- c(2,2,5,2,2,2,3) # set up the relative sizes of the tracks
@@ -412,7 +413,7 @@ all <- DMPs$Name
 # Total number of CpG sites tested
 length(all)
 
-## ----figure12, cache=TRUE, fig.width=5, fig.height=5, fig.cap="Bias resulting from different numbers of CpG probes in different genes."----
+## ----figure12, cache=TRUE, fig.width=5, fig.height=5, fig.cap="\\label{fig:figure12}Bias resulting from different numbers of CpG probes in different genes."----
 par(mfrow=c(1,1))
 gst <- gometh(sig.cpg=sigCpGs, all.cpg=all, plot.bias=TRUE)
 
@@ -454,7 +455,7 @@ age.mSetSqFlt <- dropLociWithSnps(age.mSetSqFlt, snps = c("CpG", "SBE"))
 keep <- !(featureNames(age.mSetSqFlt) %in% xReactiveProbes$TargetID)
 age.mSetSqFlt <- age.mSetSqFlt[keep,] 
 
-## ----figure13, fig.height=5,fig.width=10, fig.cap="When samples from both males and females are included in a study, sex is usually the largest source of variation in methylation data."----
+## ----figure13, fig.height=5,fig.width=10, fig.cap="\\label{fig:figure13}When samples from both males and females are included in a study, sex is usually the largest source of variation in methylation data."----
 # tag sex chromosome probes for removal
 keep <- !(featureNames(age.mSetSqFlt) %in% ann450k$Name[ann450k$chr %in% 
                                                             c("chrX","chrY")])
@@ -495,7 +496,7 @@ topDV
 # get beta values for ageing data
 age.bVals <- getBeta(age.mSetSqFlt)
 
-## ----figure14, fig.width=10, fig.height=10, results='hide', fig.cap="As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."----
+## ----figure14, fig.width=10, fig.height=10, results='hide', fig.cap="\\label{fig:figure14}As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."----
 par(mfrow=c(2,2))
 sapply(rownames(topDV)[1:4], function(cpg){
   plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, ylab = "Beta values")
@@ -510,7 +511,7 @@ pData(age.rgSet)$Slide <- as.numeric(pData(age.rgSet)$Slide)
 # estimate cell counts
 cellCounts <- estimateCellCounts(age.rgSet)
 
-## ----figure15, fig.width=5,fig.height=5, cache=TRUE, fig.cap="If samples come from a population of mixed cells e.g. blood, it is advisable to check for potential confounding between differences in cell type proportions and the factor of interest."----
+## ----figure15, fig.width=5,fig.height=5, cache=TRUE, fig.cap="\\label{fig:figure15}If samples come from a population of mixed cells e.g. blood, it is advisable to check for potential confounding between differences in cell type proportions and the factor of interest."----
 # plot cell type proportions by age
 par(mfrow=c(1,1))
 a = cellCounts[age.targets$Sample_Group == "NewBorns",]
