@@ -14,17 +14,26 @@ library(Gviz)
 library(DMRcate)
 library(stringr)
 
+## ----getdata-------------------------------------------------------------
+# the URL for the data download
+url <- "https://ndownloader.figshare.com/files/5466326?private_link=7a37f43c0ca2fec4669e"
+# download the data
+if(!file.exists("methylAnalysisData.tar.gz")){
+    download.file(url, destfile="methylAnalysisData.tar.gz", method="wget", quiet=TRUE) 
+}
+# extract the data
+if(!file.exists("./data")){
+    untar("methylAnalysisData.tar.gz", exdir=".", compressed="gzip")
+}
+
 ## ----datadir-------------------------------------------------------------
 # set up a path to the data directory
 dataDirectory <- "./data"
 # list the files
-list.files(dataDirectory, recursive = TRUE)
+list.files(dataDirectory, recursive=TRUE)
 
 ## ----readtargets, echo=FALSE, results='hide', cache=TRUE, message=FALSE----
 targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
-
-## ----viewtargets, echo=FALSE---------------------------------------------
-targets[,c("Sample_Name","Sample_Source", "Sample_Group")]
 
 ## ----loadlib_noeval, eval=FALSE, message=FALSE---------------------------
 ## # load packages required for analysis
@@ -46,10 +55,10 @@ targets[,c("Sample_Name","Sample_Source", "Sample_Group")]
 ann450k = getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 head(ann450k)
 
-## ----readtargets_noeval, eval=FALSE--------------------------------------
-## # read in the sample sheet for the experiment
-## targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
-## targets
+## ----readtargets_noeval--------------------------------------------------
+# read in the sample sheet for the experiment
+targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
+targets
 
 ## ----readdata, cache=TRUE------------------------------------------------
 # read in the raw data from the IDAT files
@@ -61,7 +70,7 @@ targets$ID <- paste(targets$Sample_Group,targets$Sample_Name,sep=".")
 sampleNames(rgSet) <- targets$ID
 rgSet
 
-## ----figure2, fig.width=10, fig.height=5, fig.cap="Mean detection p-values summarise the quality of the signal across all the probes in each sample."----
+## ----figure2, fig.width=10, fig.height=5, fig.cap="Mean detection p-values summarise the quality of the signal across all the probes in each sample. The plot on the right is a zoomed in version of the plot on the left."----
 # calculate the detection p-values
 detP <- detectionP(rgSet)
 head(detP)
@@ -70,15 +79,14 @@ head(detP)
 pal <- brewer.pal(8,"Dark2")
 par(mfrow=c(1,2))
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylab="Mean detection p-values")
-abline(h=0.05,col="red")
+        cex.names=0.8, ylim=c(0,0.015),ylab="Mean detection p-values")
+abline(h=0.01,col="red")
 legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal,
        bg="white")
 
 barplot(colMeans(detP), col=pal[factor(targets$Sample_Group)], las=2, 
-        cex.names=0.8, ylim=c(0,0.002), ylab="Mean detection p-values")
-abline(h=0.05,col="red")
-legend("topleft", legend=levels(factor(targets$Sample_Group)), fill=pal, 
+        cex.names=0.8, ylab="Mean detection p-values")
+legend("top", legend=levels(factor(targets$Sample_Group)), fill=pal, 
        bg="white")
 
 ## ----qcreport, eval=FALSE------------------------------------------------
@@ -110,8 +118,12 @@ mSetRaw <- preprocessRaw(rgSet)
 # visualise what the data looks like before and after Normalisation
 par(mfrow=c(1,2))
 densityPlot(rgSet, sampGroups=targets$Sample_Group,main="Raw", legend=FALSE)
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Group,
             main="Normalized", legend=FALSE)
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 
 ## ----figure4, fig.height=5, fig.width=10, fig.cap="Multi-dimensional scaling plots are a good way to visualise the relationships between the samples in an experiment."----
 # MDS plots to look at largest sources of variation
@@ -220,8 +232,12 @@ head(bVals[,1:5])
 par(mfrow=c(1,2))
 densityPlot(bVals, sampGroups=targets$Sample_Group, main="Beta values", 
             legend=FALSE, xlab="Beta values")
+legend("top", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 densityPlot(mVals, sampGroups=targets$Sample_Group, main="M-values", 
             legend=FALSE, xlab="M values")
+legend("topleft", legend = levels(factor(targets$Sample_Group)), 
+       text.col=brewer.pal(8,"Dark2"))
 
 ## ----dmps, cache=TRUE----------------------------------------------------
 # this is the factor of interest
@@ -264,7 +280,7 @@ head(DMPs)
 # plot the top 4 most significantly differentially methylated CpGs 
 par(mfrow=c(2,2))
 sapply(rownames(DMPs)[1:4], function(cpg){
-  plotCpg(bVals, cpg=cpg, pheno=targets$Sample_Group)
+  plotCpg(bVals, cpg=cpg, pheno=targets$Sample_Group, ylab = "Beta values")
 })
 
 ## ----cpgannotate, cache=TRUE---------------------------------------------
@@ -274,7 +290,7 @@ myAnnotation <- cpg.annotate(mVals, datatype = "array",
                              coef="naive - rTreg")
 str(myAnnotation)
 
-## ----dmrcate, cache=TRUE-------------------------------------------------
+## ----dmrcate, cache=TRUE, message=FALSE----------------------------------
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2)
 head(DMRs$results)
 
@@ -289,10 +305,10 @@ names(groups) <- levels(factor(targets$Sample_Group))
 cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 
-## ----figure10, fig.width=10, fig.height=10, fig.cap="DMRcate provides a function for plotting differentially methylated regions in their genomic context."----
+## ----figure10, fig.width=10, fig.height=10, fig.cap="The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."----
 # draw the plot for the second DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges=results.ranges, dmr=2, CpGs=bVals, phen.col=cols,
+DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
          pch=16, toscale=TRUE, plotmedians=TRUE, genome="hg19", samps=samps)
 
 ## ----dmrcoord, cache=TRUE------------------------------------------------
@@ -482,7 +498,7 @@ age.bVals <- getBeta(age.mSetSqFlt)
 ## ----figure14, fig.width=10, fig.height=10, results='hide', fig.cap="As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."----
 par(mfrow=c(2,2))
 sapply(rownames(topDV)[1:4], function(cpg){
-  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group)
+  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, ylab = "Beta values")
 })
 
 ## ----cellcounts, cache=TRUE----------------------------------------------
