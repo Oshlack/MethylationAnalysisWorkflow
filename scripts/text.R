@@ -113,8 +113,8 @@ mSetSq <- preprocessQuantile(rgSet)
 # create a MethylSet object from the raw data for plotting
 mSetRaw <- preprocessRaw(rgSet)
 
-## ----figure3, fig.width=10, fig.height=5, fig.cap="\\label{fig:figure3}The density plots show the distribution of the beta values for each sample before and after Normalisation."----
-# visualise what the data looks like before and after Normalisation
+## ----figure3, fig.width=10, fig.height=5, fig.cap="\\label{fig:figure3}The density plots show the distribution of the beta values for each sample before and after normalisation."----
+# visualise what the data looks like before and after normalisation
 par(mfrow=c(1,2))
 densityPlot(rgSet, sampGroups=targets$Sample_Group,main="Raw", legend=FALSE)
 legend("top", legend = levels(factor(targets$Sample_Group)), 
