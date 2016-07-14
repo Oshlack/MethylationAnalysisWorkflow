@@ -740,7 +740,7 @@ As reported by @Jaffe2014, the preceding plot demonstrates that differences in b
 Here we present a commonly used workflow for methylation array analysis based on a series of Bioconductor packages. While we have not included all the possible functions or analysis options that are available for detecting differential methylation, we have demonstrated a common and well used workflow that we regularly use in our own analysis. Specifically, we have not demonstrated more complex types of analyses such as removing unwanted variation in a differential methylation study [@Maksimovic2015; @Leek2012; @Teschendorff2011], block finding [@Hansen2011; @Aryee2014] or A/B compartment prediction [@Fortin2015]. Our differential methylation workflow presented here demonstrates how to read in data, perform quality control and filtering, normalisation and differential methylation testing. In addition we demonstrate analysis for differential variability, gene set testing and estimating cell type composition. One important aspect of exploring results of an analysis is visualisation and we also provide an example of generating region-level views of the data.
 
 # Software versions
-This workflow uses the following packages available from Bioconductor (release 3.3):
+The latest R markdown file and/or R script for this workflow can be downloaded from: [https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version2/scripts](https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version2/scripts). This workflow uses the following packages available from Bioconductor (release 3.3):
 
 ```{r sessioninfo}
 sessionInfo()
