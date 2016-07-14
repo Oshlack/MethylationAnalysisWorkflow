@@ -1,19 +1,16 @@
 ---
 title: "A cross-package Bioconductor workflow for analysing methylation array data"
 author: "Jovana Maksimovic, Belinda Phipson and Alicia Oshlack"
-date: "05/24/2016"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
 output:
   pdf_document:
     fig_caption: yes
     keep_tex: yes
-  html_document: default
-  word_document:
-    keep_md: yes
 bibliography: bibliography.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=70))
+knitr::opts_chunk$set(echo=TRUE)
 ```
 
 ```{r libload, results="hide", echo=FALSE, message=FALSE}
@@ -43,7 +40,7 @@ Measurement of DNA methylation by Infinium technology (Infinium I) was first emp
 \begin{figure}[htbp]
 \centering
 \includegraphics{text_files/figure-latex/figure1.pdf}
-\caption{\label{fig:figure1}Illumina Infinium HumanMethylation450 assay, reproduced from Maksimovic, Gordon and Oshlack 2012. (a) Infinium I assay. Each individual CpG is interrogated using two bead types: methylated (M) and unmethylated (U). Both bead types will incorporate the same labeled nucleotide for the same target CpG, thereby producing the same color fluorescence. The nucleotide that is added is determined by the base downstream of the 'C' of the target CpG. The proportion of methylation can be calculated by comparing the intensities from the two different probes in the same color. (b) Infinium II assay. Each target CpG is interrogated using a single bead type. Methylation state is detected by single base extension at the position of the 'C' of the target CpG, which always results in the addition of a labeled 'G' or 'A' nucleotide, complementary to either the 'methylated' C or 'unmethylated' T, respectively. Each locus is detected in two colors, and methylation status is determined by comparing the two colors from the one position.}
+\caption{\label{fig:figure1}Illumina Infinium HumanMethylation450 assay, reproduced from Maksimovic, Gordon and Oshlack 2012. (a) Infinium I assay. Each individual CpG is interrogated using two bead types: methylated (M) and unmethylated (U). Both bead types will incorporate the same labeled nucleotide for the same target CpG, thereby producing the same color fluorescence. The nucleotide that is added is determined by the base downstream of the ``C'' of the target CpG. The proportion of methylation can be calculated by comparing the intensities from the two different probes in the same color. (b) Infinium II assay. Each target CpG is interrogated using a single bead type. Methylation state is detected by single base extension at the position of the ``C'' of the target CpG, which always results in the addition of a labeled ``G'' or ``A'' nucleotide, complementary to either the ``methylated'' C or ``unmethylated'' T, respectively. Each locus is detected in two colors, and methylation status is determined by comparing the two colors from the one position.}
  \end{figure}
 
  Regardless of the Illumina array version, for each CpG, there are two measurements: a methylated intensity (denoted by $M$) and an unmethylated intensity (denoted by $U$). These intensity values can be used to determine the proportion of methylation at each CpG locus. Methylation levels are commonly reported as either beta values ($\beta = M/(M + U)$) or M-values ($Mvalue = log2(M/U)$). For practical purposes, a small offset, $\alpha$, can be added to the denominator of the $\beta$ value equation to avoid dividing by small values, which is the default behaviour of the `getBeta` function in *minfi*. The default value for $\alpha$ is 100. It may also be desirable to add a small offset to the numerator and denominator when calculating M-values to avoid dividing by zero in rare cases, however the default `getM` function in *minfi* does not do this. Beta values and M-values are related through a logit transformation. Beta values are generally preferable for describing the level of methylation at a locus or for graphical presentation because percentage methylation is easily interpretable. However, due to their distributional properties, M-values are more appropriate for statistical testing [@Du2010]. 
@@ -54,16 +51,14 @@ In this workflow, we will provide examples of the steps involved in analysing me
 
 ## Obtaining the data
 
-All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from [figshare](https://figshare.com/s/7a37f43c0ca2fec4669e).
+All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from [figshare](https://figshare.com/articles/methylAnalysisData_tar_gz/3471719).
 
-```{r getdata}
+```{r getdata, message=FALSE}
 # the URL for the data download
-url <- "https://ndownloader.figshare.com/files/5466326?private_link=7a37f43c0ca2fec4669e"
+url <- "https://ndownloader.figshare.com/files/5466326"
 # download the data
-if(Sys.info()["sysname"] == "Linux") method <- "wget" else method <- "auto"
 if(!file.exists("methylAnalysisData.tar.gz")){
-    download.file(url, destfile="methylAnalysisData.tar.gz", method=method, 
-                  quiet=TRUE) 
+    download.file(url, destfile="methylAnalysisData.tar.gz", method="auto") 
 }
 # extract the data
 if(!file.exists("./data")){
@@ -84,7 +79,7 @@ list.files(dataDirectory, recursive=TRUE)
 targets <- read.metharray.sheet(dataDirectory, pattern="SampleSheet.csv")
 ```
 
-To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total: there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`, collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. An additional `birth` sample (individual `r targets$Sample_Source[targets$Sample_Group == "birth"]`) is included from another study [@Cruickshank2013] to illustrate approaches for identifying and excluding poor quality samples. 
+To demonstrate the various aspects of analysing methylation data, we will be using a small, publicly available 450k methylation dataset ([GSE49667](http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667))[@Zhang2013]. The dataset contains 10 samples in total: there are 4 different sorted T-cell types (`r unique(targets$Sample_Group[targets$Sample_Group != "birth"])`, collected from 3 different individuals (`r unique(targets$Sample_Source[targets$Sample_Group != "birth"])`). For details describing sample collection and preparation, see @Zhang2013. An additional `birth` sample (individual `r targets$Sample_Source[targets$Sample_Group == "birth"]`) is included from another study (GSE51180)[http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE51180][@Cruickshank2013] to illustrate approaches for identifying and excluding poor quality samples. 
 
 There are several R Bioconductor packages available that have been developed for analysing methylation array data, including *minfi* [@Aryee2014], *missMethyl* [@Phipson2016], *wateRmelon* [@Pidsley2013], *methylumi* [@Davis2015], *ChAMP* [@Morris2014] and *charm* [@Aryee2011]. Some of the packages, such as *minfi* and *methylumi* include a framework for reading in the raw data from IDAT files and various specialised objects for storing and manipulating the data throughout the course of an analysis. Other packages provide specialised analysis methods for normalisation and statistical testing that rely on either *minfi* or *methylumi* objects. It is possible to convert between *minfi* and *methylumi* data types, however, this is not always trivial. Thus, it is advisable to consider the methods that you are interested in using and the data types that are most appropriate before you begin your analysis. Another popular method for analysing methylation array data is *limma* [@Ritchie2015], which was originally developed for gene expression microarray analysis. As *limma* operates on a matrix of values, it is easily applied to any data that can be converted to a `matrix` in R. For a complete list of Bioconductor packages for analysing DNA methylation data, one can search for ``DNAMethylation" in BiocViews on the Bioconductor website.         
 
@@ -288,8 +283,8 @@ We will also filter out probes that have shown to be cross-reactive, that is, pr
 ```{r xhybfilter, cache=TRUE}
 # exclude cross reactive probes 
 xReactiveProbes <- read.csv(file=paste(dataDirectory,
-                                       "48639-non-specific-probes-Illumina450k.csv",
-                                       sep="/"), stringsAsFactors=FALSE)
+                             "48639-non-specific-probes-Illumina450k.csv", 
+                            sep="/"), stringsAsFactors=FALSE)
 keep <- !(featureNames(mSetSqFlt) %in% xReactiveProbes$TargetID)
 table(keep)
 
@@ -452,7 +447,7 @@ cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 ```
 
-```{r figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."}
+```{r figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate \"DMR.plot\" function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment. This plot shows the top ranked DMR identified by the DMRcate analysis."}
 # draw the plot for the second DMR
 par(mfrow=c(1,1))
 DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
@@ -484,8 +479,8 @@ Next, we will add some genomic annotations of interest such as the locations of 
 
 ```{r extrafeatures, cache=TRUE}
 # CpG islands
-islandHMM = read.csv(paste(dataDirectory, "model-based-cpg-islands-hg19-chr22.txt",
-                           sep="/"),
+islandHMM <- read.csv(paste(dataDirectory,
+                            "model-based-cpg-islands-hg19-chr22.txt", sep="/"),
                      sep="\t", stringsAsFactors=FALSE, header=FALSE)
 head(islandHMM)
 
@@ -559,7 +554,7 @@ dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR",
 
 Set up the track list and indicate the relative sizes of the different tracks. Finally, draw the plot using the `plotTracks` function (Figure \ref{fig:figure11}).
 
-```{r figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions."}
+```{r figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the 11th ranked DMR identified by the DMRcate analysis."}
 tracks <- list(iTrack, gTrack, methTrack, dmrTrack, islandTrack, dnaseTrack,
                rTrack)
 sizes <- c(2,2,5,2,2,2,3) # set up the relative sizes of the tracks
@@ -573,7 +568,7 @@ plotTracks(tracks, from=minbase, to=maxbase, showTitle=TRUE, add53=TRUE,
 
 Once you have performed a differential methylation analysis, there may be a very long list of significant CpG sites to interpret. One question a researcher may have is, "which gene pathways are over-represented for differentially methylated CpGs?" In some cases it is relatively straightforward to link the top differentially methylated CpGs to genes that make biological sense in terms of the cell types or samples being studied, but there may be many thousands of CpGs significantly differentially methylated. In order to gain an understanding of the biological processes that the differentially methylated CpGs may be involved in, we can perform gene ontology or KEGG pathway analysis using the `gometh` function in the *missMethyl* package [@Phipson2016].
 
-Let us consider the first comparison, naive vs rTreg, with the results of the analysis in the `DMPs` table. The `gometh` function takes as input a character vector of the names (e.g. cg20832020) of the significant CpG sites, and optionally, a character vector of all CpGs tested. This is recommended particularly if extensive filtering of the CpGs has been performed prior to analysis. For gene ontology testing (default), the user can specify `collection=``GO”`. For testing KEGG pathways, specify  `collection=``KEGG”`. In the `DMPs` table, the `Name` column corresponds to the CpG name. We will select all CpG sites that have adjusted p-value of less than 0.05.
+Let us consider the first comparison, naive vs rTreg, with the results of the analysis in the `DMPs` table. The `gometh` function takes as input a character vector of the names (e.g. cg20832020) of the significant CpG sites, and optionally, a character vector of all CpGs tested. This is recommended particularly if extensive filtering of the CpGs has been performed prior to analysis. For gene ontology testing (default), the user can specify `collection="GO”`. For testing KEGG pathways, specify  `collection="KEGG”`. In the `DMPs` table, the `Name` column corresponds to the CpG name. We will select all CpG sites that have adjusted p-value of less than 0.05.
 
 ```{r gomethsetup, cache=TRUE}
 # Get the significant CpG sites at less than 5% FDR
@@ -705,7 +700,8 @@ age.bVals <- getBeta(age.mSetSqFlt)
 ```{r figure14, fig.width=10, fig.height=10, results='hide', fig.cap="\\label{fig:figure14}As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."}
 par(mfrow=c(2,2))
 sapply(rownames(topDV)[1:4], function(cpg){
-  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, ylab = "Beta values")
+  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, 
+          ylab = "Beta values")
 })
 ```
 

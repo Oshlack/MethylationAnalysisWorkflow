@@ -1,5 +1,5 @@
 ## ----setup, include=FALSE------------------------------------------------
-knitr::opts_chunk$set(echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=70))
+knitr::opts_chunk$set(echo=TRUE)
 
 ## ----libload, results="hide", echo=FALSE, message=FALSE------------------
 library(limma)
@@ -14,14 +14,12 @@ library(Gviz)
 library(DMRcate)
 library(stringr)
 
-## ----getdata-------------------------------------------------------------
+## ----getdata, message=FALSE----------------------------------------------
 # the URL for the data download
-url <- "https://ndownloader.figshare.com/files/5466326?private_link=7a37f43c0ca2fec4669e"
+url <- "https://ndownloader.figshare.com/files/5466326"
 # download the data
-if(Sys.info()["sysname"] == "Linux") method <- "wget" else method <- "auto"
 if(!file.exists("methylAnalysisData.tar.gz")){
-    download.file(url, destfile="methylAnalysisData.tar.gz", method=method, 
-                  quiet=TRUE) 
+    download.file(url, destfile="methylAnalysisData.tar.gz", method="auto") 
 }
 # extract the data
 if(!file.exists("./data")){
@@ -183,8 +181,8 @@ mSetSqFlt
 ## ----xhybfilter, cache=TRUE----------------------------------------------
 # exclude cross reactive probes 
 xReactiveProbes <- read.csv(file=paste(dataDirectory,
-                                       "48639-non-specific-probes-Illumina450k.csv",
-                                       sep="/"), stringsAsFactors=FALSE)
+                             "48639-non-specific-probes-Illumina450k.csv", 
+                            sep="/"), stringsAsFactors=FALSE)
 keep <- !(featureNames(mSetSqFlt) %in% xReactiveProbes$TargetID)
 table(keep)
 
@@ -306,7 +304,7 @@ names(groups) <- levels(factor(targets$Sample_Group))
 cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 
-## ----figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate 'DMR.plot' function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment."----
+## ----figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate \"DMR.plot\" function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment. This plot shows the top ranked DMR identified by the DMRcate analysis."----
 # draw the plot for the second DMR
 par(mfrow=c(1,1))
 DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
@@ -328,8 +326,8 @@ maxbase <- end + (0.25*(end-start))
 
 ## ----extrafeatures, cache=TRUE-------------------------------------------
 # CpG islands
-islandHMM = read.csv(paste(dataDirectory, "model-based-cpg-islands-hg19-chr22.txt",
-                           sep="/"),
+islandHMM <- read.csv(paste(dataDirectory,
+                            "model-based-cpg-islands-hg19-chr22.txt", sep="/"),
                      sep="\t", stringsAsFactors=FALSE, header=FALSE)
 head(islandHMM)
 
@@ -394,7 +392,7 @@ dnaseTrack <- DataTrack(range=dnaseData, genome=gen, name="DNAseI",
 dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR", 
                             chromosome=chrom,fill="darkred")
 
-## ----figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions."----
+## ----figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the 11th ranked DMR identified by the DMRcate analysis."----
 tracks <- list(iTrack, gTrack, methTrack, dmrTrack, islandTrack, dnaseTrack,
                rTrack)
 sizes <- c(2,2,5,2,2,2,3) # set up the relative sizes of the tracks
@@ -499,7 +497,8 @@ age.bVals <- getBeta(age.mSetSqFlt)
 ## ----figure14, fig.width=10, fig.height=10, results='hide', fig.cap="\\label{fig:figure14}As for DMPs, it is useful to plot the top few differentially variable CpGs to check that the results make sense."----
 par(mfrow=c(2,2))
 sapply(rownames(topDV)[1:4], function(cpg){
-  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, ylab = "Beta values")
+  plotCpg(age.bVals, cpg=cpg, pheno=age.targets$Sample_Group, 
+          ylab = "Beta values")
 })
 
 ## ----cellcounts, cache=TRUE----------------------------------------------
