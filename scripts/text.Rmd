@@ -51,7 +51,7 @@ In this workflow, we will provide examples of the steps involved in analysing me
 
 ## Obtaining the data
 
-All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from [figshare](https://figshare.com/articles/methylAnalysisData_tar_gz/3471719).
+All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from: [https://figshare.com/articles/methylAnalysisData_tar_gz/3471719](https://figshare.com/articles/methylAnalysisData_tar_gz/3471719).
 
 ```{r getdata, message=FALSE}
 # the URL for the data download
