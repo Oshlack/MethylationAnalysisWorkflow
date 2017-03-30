@@ -51,18 +51,18 @@ In this workflow, we will provide examples of the steps involved in analysing me
 
 ## Obtaining the data
 
-All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from: [https://figshare.com/articles/methylAnalysisData_tar_gz/3471719](https://figshare.com/articles/methylAnalysisData_tar_gz/3471719).
+All of the data used in this workflow can be downloaded and extracted in R using the `download.file` and `untar` functions, as shown below. Alternatively, the data can be manually downloaded from: [https://figshare.com/articles/methylAnalysisDataV3_tar_gz/4800970](https://figshare.com/articles/methylAnalysisDataV3_tar_gz/4800970).
 
 ```{r getdata, message=FALSE}
 # the URL for the data download
-url <- "https://ndownloader.figshare.com/files/5466326"
+url <- "https://ndownloader.figshare.com/files/7896205"
 # download the data
-if(!file.exists("methylAnalysisData.tar.gz")){
-    download.file(url, destfile="methylAnalysisData.tar.gz", method="auto") 
+if(!file.exists("methylAnalysisDataV3.tar.gz")){
+    download.file(url, destfile="methylAnalysisDataV3.tar.gz", method="auto") 
 }
 # extract the data
 if(!file.exists("./data")){
-    untar("methylAnalysisData.tar.gz", exdir=".", compressed="gzip")
+    untar("methylAnalysisDataV3.tar.gz", exdir=".", compressed="gzip")
 }
 ```
 
@@ -420,10 +420,10 @@ Although performing a *probe-wise* analysis is useful and informative, sometimes
 Firstly, our matrix of M-values is annotated with the relevant information about the probes such as their genomic position, gene annotation, etc. By default, this is done using the `ilmn12.hg19` annotation, but this can be substituted for any argument compatible with the interface provided by the *minfi* package. The *limma* pipeline is then used for differential methylation analysis to calculate moderated t-statistics.
 
 ```{r cpgannotate, cache=TRUE}
-myAnnotation <- cpg.annotate(mVals, datatype = "array", 
-                             analysis.type="differential", design=design, 
+myAnnotation <- cpg.annotate(object = mVals, datatype = "array", what = "M", 
+                             analysis.type = "differential", design = design, 
                              contrasts = TRUE, cont.matrix = contMatrix, 
-                             coef="naive - rTreg")
+                             coef = "naive - rTreg", arraytype = "450K")
 str(myAnnotation)
 ```
 
@@ -447,11 +447,12 @@ cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 ```
 
-```{r figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate \"DMR.plot\" function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment. This plot shows the top ranked DMR identified by the DMRcate analysis."}
-# draw the plot for the second DMR
+```{r figure10, fig.width=10, fig.height=10, fig.cap="The DMRcate \"DMR.plot\" function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment. This plot shows the top ranked DMR identified by the DMRcate analysis."}
+# draw the plot for the top DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
-         pch=16, toscale=TRUE, plotmedians=TRUE, genome="hg19", samps=samps)
+DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols, what = "Beta",
+         arraytype = "450K", pch=16, toscale=TRUE, plotmedians=TRUE, 
+         genome="hg19", samps=samps)
 ```
 
 ## Customising visualisations of methylation data
@@ -464,7 +465,7 @@ We will first set up the genomic region we would like to plot by extracting the 
 # indicate which genome is being used
 gen <- "hg19"
 # the index of the DMR that we will plot 
-dmrIndex <- 11
+dmrIndex <- 1
 # extract chromosome number and location from DMR results 
 coords <- strsplit2(DMRs$results$coord[dmrIndex],":")
 chrom <- coords[1]
@@ -480,7 +481,7 @@ Next, we will add some genomic annotations of interest such as the locations of 
 ```{r extrafeatures, cache=TRUE}
 # CpG islands
 islandHMM <- read.csv(paste(dataDirectory,
-                            "model-based-cpg-islands-hg19-chr22.txt", sep="/"),
+                            "model-based-cpg-islands-hg19-chr17.txt", sep="/"),
                      sep="\t", stringsAsFactors=FALSE, header=FALSE)
 head(islandHMM)
 
@@ -490,7 +491,7 @@ islandData <- GRanges(seqnames=Rle(islandHMM[,1]),
 islandData
 
 # DNAseI hypersensitive sites
-dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3chr22.bed",
+dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3chr17.bed",
                         sep="/"),
                   sep="\t",stringsAsFactors=FALSE,header=FALSE)
 head(dnase)
@@ -554,7 +555,7 @@ dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR",
 
 Set up the track list and indicate the relative sizes of the different tracks. Finally, draw the plot using the `plotTracks` function (Figure \ref{fig:figure11}).
 
-```{r figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the 11th ranked DMR identified by the DMRcate analysis."}
+```{r figure11, fig.width=10, fig.height=6, fig.cap="The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the top ranked DMR identified by the DMRcate analysis."}
 tracks <- list(iTrack, gTrack, methTrack, dmrTrack, islandTrack, dnaseTrack,
                rTrack)
 sizes <- c(2,2,5,2,2,2,3) # set up the relative sizes of the tracks
@@ -740,7 +741,7 @@ As reported by @Jaffe2014, the preceding plot demonstrates that differences in b
 Here we present a commonly used workflow for methylation array analysis based on a series of Bioconductor packages. While we have not included all the possible functions or analysis options that are available for detecting differential methylation, we have demonstrated a common and well used workflow that we regularly use in our own analysis. Specifically, we have not demonstrated more complex types of analyses such as removing unwanted variation in a differential methylation study [@Maksimovic2015; @Leek2012; @Teschendorff2011], block finding [@Hansen2011; @Aryee2014] or A/B compartment prediction [@Fortin2015]. Our differential methylation workflow presented here demonstrates how to read in data, perform quality control and filtering, normalisation and differential methylation testing. In addition we demonstrate analysis for differential variability, gene set testing and estimating cell type composition. One important aspect of exploring results of an analysis is visualisation and we also provide an example of generating region-level views of the data.
 
 # Software versions
-The latest R markdown file and/or R script for this workflow can be downloaded from: [https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version2/scripts](https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version2/scripts). This workflow uses the following packages available from Bioconductor (release 3.3):
+The R markdown file and/or R script for this version workflow can be downloaded from: [https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version3/scripts](https://github.com/Oshlack/MethylationAnalysisWorkflow/tree/version3/scripts). A *live* version of this workflow that is regularly built using updated Bioconductor packages can be accessed on the Bioconductor website: [https://www.bioconductor.org/help/workflows/methylationArrayAnalysis/](https://www.bioconductor.org/help/workflows/methylationArrayAnalysis/). The version of the workflow presented here uses the following packages available from Bioconductor (release 3.4):
 
 ```{r sessioninfo}
 sessionInfo()
