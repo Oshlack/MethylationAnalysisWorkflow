@@ -16,14 +16,14 @@ library(stringr)
 
 ## ----getdata, message=FALSE----------------------------------------------
 # the URL for the data download
-url <- "https://ndownloader.figshare.com/files/5466326"
+url <- "https://ndownloader.figshare.com/files/7896205"
 # download the data
-if(!file.exists("methylAnalysisData.tar.gz")){
-    download.file(url, destfile="methylAnalysisData.tar.gz", method="auto") 
+if(!file.exists("methylAnalysisDataV3.tar.gz")){
+    download.file(url, destfile="methylAnalysisDataV3.tar.gz", method="auto") 
 }
 # extract the data
 if(!file.exists("./data")){
-    untar("methylAnalysisData.tar.gz", exdir=".", compressed="gzip")
+    untar("methylAnalysisDataV3.tar.gz", exdir=".", compressed="gzip")
 }
 
 ## ----datadir-------------------------------------------------------------
@@ -283,10 +283,10 @@ sapply(rownames(DMPs)[1:4], function(cpg){
 })
 
 ## ----cpgannotate, cache=TRUE---------------------------------------------
-myAnnotation <- cpg.annotate(mVals, datatype = "array", 
-                             analysis.type="differential", design=design, 
+myAnnotation <- cpg.annotate(object = mVals, datatype = "array", what = "M", 
+                             analysis.type = "differential", design = design, 
                              contrasts = TRUE, cont.matrix = contMatrix, 
-                             coef="naive - rTreg")
+                             coef = "naive - rTreg", arraytype = "450K")
 str(myAnnotation)
 
 ## ----dmrcate, cache=TRUE, message=FALSE----------------------------------
@@ -305,16 +305,17 @@ cols <- groups[as.character(factor(targets$Sample_Group))]
 samps <- 1:nrow(targets)
 
 ## ----figure10, fig.width=10, fig.height=10, fig.cap="\\label{fig:figure10}The DMRcate \"DMR.plot\" function allows you to quickly visualise DMRs in their genomic context. By default, the plot shows the location of the DMR in the genome, the position of any genes that are nearby, the base pair positions of the CpG probes, the methylation levels of the individual samples as a heatmap and the mean methylation levels for the various sample groups in the experiment. This plot shows the top ranked DMR identified by the DMRcate analysis."----
-# draw the plot for the second DMR
+# draw the plot for the top DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols,
-         pch=16, toscale=TRUE, plotmedians=TRUE, genome="hg19", samps=samps)
+DMR.plot(ranges=results.ranges, dmr=1, CpGs=bVals, phen.col=cols, what = "Beta",
+         arraytype = "450K", pch=16, toscale=TRUE, plotmedians=TRUE, 
+         genome="hg19", samps=samps)
 
 ## ----dmrcoord, cache=TRUE------------------------------------------------
 # indicate which genome is being used
 gen <- "hg19"
 # the index of the DMR that we will plot 
-dmrIndex <- 11
+dmrIndex <- 1
 # extract chromosome number and location from DMR results 
 coords <- strsplit2(DMRs$results$coord[dmrIndex],":")
 chrom <- coords[1]
@@ -327,7 +328,7 @@ maxbase <- end + (0.25*(end-start))
 ## ----extrafeatures, cache=TRUE-------------------------------------------
 # CpG islands
 islandHMM <- read.csv(paste(dataDirectory,
-                            "model-based-cpg-islands-hg19-chr22.txt", sep="/"),
+                            "model-based-cpg-islands-hg19-chr17.txt", sep="/"),
                      sep="\t", stringsAsFactors=FALSE, header=FALSE)
 head(islandHMM)
 
@@ -337,7 +338,7 @@ islandData <- GRanges(seqnames=Rle(islandHMM[,1]),
 islandData
 
 # DNAseI hypersensitive sites
-dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3chr22.bed",
+dnase <- read.csv(paste(dataDirectory,"wgEncodeRegDnaseClusteredV3chr17.bed",
                         sep="/"),
                   sep="\t",stringsAsFactors=FALSE,header=FALSE)
 head(dnase)
@@ -392,7 +393,7 @@ dnaseTrack <- DataTrack(range=dnaseData, genome=gen, name="DNAseI",
 dmrTrack <- AnnotationTrack(start=start, end=end, genome=gen, name="DMR", 
                             chromosome=chrom,fill="darkred")
 
-## ----figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the 11th ranked DMR identified by the DMRcate analysis."----
+## ----figure11, fig.width=10, fig.height=6, fig.cap="\\label{fig:figure11}The Gviz package provides extensive functionality for customising plots of genomic regions. This plot shows the top ranked DMR identified by the DMRcate analysis."----
 tracks <- list(iTrack, gTrack, methTrack, dmrTrack, islandTrack, dnaseTrack,
                rTrack)
 sizes <- c(2,2,5,2,2,2,3) # set up the relative sizes of the tracks
